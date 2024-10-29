@@ -11,13 +11,12 @@ It features a web application built with Streamlit.io, allowing users to upload 
 This tool provides users with insights into how well their infrastructure code aligns with or deviates from established AWS best practices, offering suggestions for improving cloud architecture designs.
 
 The project deploys resources running on the following AWS services:
+* Amazon Virtual Private Cloud (VPC)
 * Application Load Balancer
 * Amazon Elastic Container Service (ECS)
 * AWS Fargate
 * Amazon S3
 * AWS Lambda
-
-
 
 ## Pre-requisites 
 Below pre-requesites are to be deployed in your local machine.
@@ -75,6 +74,8 @@ cdk bootstrap
 cdk synth
 cdk deploy
 ```
+
+
 
 After the deployment is complete, you will see the private ALB DNS name in the output of the `cdk deploy` command. You can also find this information in the outputs section of the CloudFormation stack named `WA-IaC-Analyzer-{region}-GenAIStack` in the AWS Console.
 
