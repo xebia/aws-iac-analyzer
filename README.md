@@ -39,8 +39,8 @@ model_id = anthropic.claude-3-sonnet-20240229-v1:0
 **1. Clone this repository**
 
 ```
-git clone https://github.com/carlos-aws/wa-genai-iac-analyzer.git
-cd wa-genai-iac-analyzer
+git clone https://github.com/aws-samples/well-architected-iac-analyzer.git
+cd well-architected-iac-analyzer
 ```
 
 **2. Create and activate a Python virtual environment**
