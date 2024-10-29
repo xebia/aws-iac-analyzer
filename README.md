@@ -1,18 +1,41 @@
-## Well-Architected IaC (Infrastructure as Code) Analyzer
+# Well-Architected IaC (Infrastructure as Code) Analyzer
 
 ![solutions_diagram](/assets/wa_genai_app_diagram.png)
 
-### Pre-requisites before deploying this CDK stack
-* Make sure you [have requested access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html) to **Cohere Embed English v3** and **Claude 3 Sonnet** models in your AWS Account in the region you plan to deploy this stack.
-* Install and run [Docker](https://docs.docker.com/engine/install/) in your local machine before running below commands.
+## Description 
 
-If you prefer to use a different model different than "Claude 3 Sonnet", update the config.ini with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns).
+Well-Architected Infrastructure as Code (IaC) Analyzer is a project that demonstrates how generative AI can be used to evaluate infrastructure code for alignment with best practices.
+
+It features a web application built with Streamlit.io, allowing users to upload AWS CloudFormation files for assessment. The application leverages a large language model running on Amazon Bedrock to analyze the code against AWS Well-Architected best practices. These best practices are sourced from AWS Well-Architected whitepapers and synchronized with the Amazon Bedrock knowledge base.
+
+This tool provides users with insights into how well their infrastructure code aligns with or deviates from established AWS best practices, offering suggestions for improving cloud architecture designs.
+
+The project deploys resources running on the following AWS services:
+* Application Load Balancer
+* Amazon Elastic Container Service (ECS)
+* AWS Fargate
+* Amazon S3
+* AWS Lambda
+
+
+
+## Pre-requisites 
+Below pre-requesites are to be deployed in your local machine.
+
+* Install [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html).
+* Prepare CDK for python [here](https://docs.aws.amazon.com/cdk/v2/guide/work-with-cdk-python.html) 
+* Install and run [Docker](https://docs.docker.com/engine/install/).
+* Enable access to **Cohere Embed English v3** and **Claude 3 Sonnet** models in your AWS region for your stack [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
+
+
+### Optional
+If you want to use a different model than "Claude 3 Sonnet", update the config.ini with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns).
 ```
 [settings]
 model_id = anthropic.claude-3-sonnet-20240229-v1:0
 ```
 
-### Instructions to deploy the solution
+## Instructions to deploy
 
 **1. Clone this repository**
 
@@ -21,38 +44,32 @@ git clone https://github.com/carlos-aws/wa-genai-iac-analyzer.git
 cd wa-genai-iac-analyzer
 ```
 
-**2. Install or update CDK**
-
-```
-npm install -g aws-cdk
-```
-
-**3. Create and activate a Python virtual environment**
+**2. Create and activate a Python virtual environment**
 
 ```
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-**4. Install requirements**
+**3. Install requirements**
 
 ```
 pip install -r requirements.txt
 ```
 
-**5. Set the AWS region were the CDK stack will be deployed**
+**4. Set the AWS region were the CDK stack will be deployed**
 
 ```
 export CDK_DEPLOY_REGION=us-west-2
 ```
 
-**6. Bootstrap CDK**
+**5. Bootstrap CDK**
 
 ```
 cdk bootstrap
 ```
 
-**7. Deploy the solution**
+**6. Deploy the solution**
 
 ```
 cdk synth
