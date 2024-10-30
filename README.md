@@ -22,12 +22,20 @@ The project deploys resources running on the following AWS services:
 Below pre-requesites are to be deployed in your local machine.
 
 * Install [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html).
-* Prepare CDK for python [here](https://docs.aws.amazon.com/cdk/v2/guide/work-with-cdk-python.html) 
+* Prepare CDK for python [here](https://docs.aws.amazon.com/cdk/v2/guide/work-with-cdk-python.html).
 * Install and run [Docker](https://docs.docker.com/engine/install/).
 * Enable access to **Cohere Embed English v3** and **Claude 3 Sonnet** models in your AWS region for your stack [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
+## Security Note
+> By default, this project will deploy the Load Balancer scheme as [**internal**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) **(Private load balancer)**. To access the application, you will need to be in the private network connected to the deployed VPC, either via [VPC peering](https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html), VPN, or any other means. If you need to change the load balancer scheme to [**internet-facing**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme), you can modify the `public_load_balancer` parameter setting to `True` in the config.ini file, as below example. 
+>```
+>[settings]
+>public_load_balancer = True
+>```
+> However, please be aware that this project is prepared as a **demo** with **no authentication mechanism**. Therefore, should you choose to change the parameter to `True` or modify the load balancer to be **internet-facing**, you are accepting the risk of any implications that this application, along with its functionalities, will be accessible directly through the internet without any form of authentication.
 
-### Optional
+
+## Optional
 If you want to use a different model than "Claude 3 Sonnet", update the config.ini with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns).
 ```
 [settings]
@@ -39,14 +47,14 @@ model_id = anthropic.claude-3-sonnet-20240229-v1:0
 **1. Clone this repository**
 
 ```
-git clone https://github.com/carlos-aws/wa-genai-iac-analyzer.git
+git clone https://github.com/aws-samples/well-architected-iac-analyzer
 cd wa-genai-iac-analyzer
 ```
 
 **2. Create and activate a Python virtual environment**
 
 ```
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 ```
 
@@ -75,11 +83,7 @@ cdk synth
 cdk deploy
 ```
 
-
-
 After the deployment is complete, you will see the private ALB DNS name in the output of the `cdk deploy` command. You can also find this information in the outputs section of the CloudFormation stack named `WA-IaC-Analyzer-{region}-GenAIStack` in the AWS Console.
-
-**Important:** The ALB deployed is a private ALB. You will need to ensure you have the necessary network access before attempting to use the application. For example, if you already have a VPC connected to a VPN or Direct Connect connection, you could attach or peer the VPC created as part of this CDK stack into your existing VPN/DirectConnect connected VPC.
 
 
 ### Clean up
@@ -91,8 +95,6 @@ cdk destroy
 ```
 
 Option 2 - You can also open the CloudFormation console and directly delete the stack named ``WA-IaC-Analyzer-{region}-GenAIStack``.
-
-## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 

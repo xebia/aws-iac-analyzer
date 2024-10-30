@@ -31,6 +31,10 @@ class WAGenAIStack(Stack):
         config = configparser.ConfigParser()
         config.read("config.ini")
         model_id = config["settings"]["model_id"]
+        if config["settings"]["public_load_balancer"] == 'False':
+            public_lb = False
+        else:
+            public_lb = True
 
         random_id = str(uuid.uuid4())[:8]  # First 8 characters of a UUID
 
@@ -323,19 +327,20 @@ class WAGenAIStack(Stack):
             ),
             task_subnets=ec2.SubnetSelection(
                 subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+
             ),
-            public_load_balancer=False,
+            public_load_balancer=public_lb,
         )
 
         # Configure health check for ALB
         fargate_service.target_group.configure_health_check(path="/healthz")
 
-        # Output the private ALB DNS name
+        # Output the ALB DNS name
         cdk.CfnOutput(
             self,
             "StreamlitAppPrivateALB",
             value=fargate_service.load_balancer.load_balancer_dns_name,
-            description="Private DNS name of the ALB",
+            description="DNS name of the ALB",
         )
 
         # Output the VPC ID
