@@ -46,7 +46,7 @@ model_id = anthropic.claude-3-sonnet-20240229-v1:0
 
 ```
 git clone https://github.com/aws-samples/well-architected-iac-analyzer
-cd wa-genai-iac-analyzer
+cd well-architected-iac-analyzer
 ```
 
 **2. Create and activate a Python virtual environment**
