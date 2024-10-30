@@ -26,9 +26,7 @@ Below pre-requesites are to be deployed in your local machine.
 * Install and run [Docker](https://docs.docker.com/engine/install/).
 * Enable access to **Cohere Embed English v3** and **Claude 3 Sonnet** models in your AWS region for your stack [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
-## Security Note
-> <span style="color:red">*IMPORTANT*</span>
->
+## IMPORTANT SECURITY NOTE
 > By default, this project will deploy the Load Balancer scheme as [**internal**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) **(Private load balancer)**. To access the application, you will need to be in the private network connected to the deployed VPC, either via [VPC peering](https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html), VPN, or any other means. If you need to change the load balancer scheme to [**internet-facing**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme), you can modify the `public_load_balancer` parameter setting to `True` in the config.ini file, as below example. 
 >```
 >[settings]
