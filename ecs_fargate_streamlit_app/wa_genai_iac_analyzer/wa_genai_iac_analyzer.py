@@ -11,6 +11,7 @@ from io import StringIO
 import boto3
 import pandas as pd
 import streamlit as st
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 # Specify the workload parameters
@@ -26,7 +27,8 @@ model_id = os.environ.get("MODEL_ID")
 
 # Initialize AWS clients
 s3_client = boto3.client("s3")
-bedrock_client = boto3.client("bedrock-runtime")
+bedrock_client_config = Config(retries=dict(max_attempts=10, mode="standard"))
+bedrock_client = boto3.client("bedrock-runtime", config=bedrock_client_config)
 bedrock_agent_client = boto3.client("bedrock-agent-runtime")
 wa_client = boto3.client("wellarchitected")
 
@@ -267,7 +269,13 @@ def invoke_model(system_prompt, prompt):
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
         error_message = e.response["Error"]["Message"]
-        st.error(f"AWS Error: {error_code} - {error_message}")
+        logger.error(f"{error_code} - {error_message}")
+        st.error(f"{error_code} - {error_message}")
+        return None
+
+    except Exception as e:
+        logger.error(f"Unexpected error in invoke_model: {str(e)}")
+        st.error(f"An unexpected error occurred: {str(e)}")
         return None
 
 
