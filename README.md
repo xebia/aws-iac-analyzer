@@ -6,7 +6,7 @@
 
 Well-Architected Infrastructure as Code (IaC) Analyzer is a project that demonstrates how generative AI can be used to evaluate infrastructure code for alignment with best practices.
 
-It features a web application built with Streamlit.io, allowing users to upload AWS CloudFormation files for assessment. The application leverages a large language model running on Amazon Bedrock to analyze the code against AWS Well-Architected best practices. These best practices are sourced from AWS Well-Architected whitepapers and synchronized with the Amazon Bedrock knowledge base.
+It features a web application built with Streamlit.io, allowing users to upload IaC documents (e.g. AWS CloudFormation or Terraform templates) for assessment. The application leverages a large language model running on Amazon Bedrock to analyze the code against AWS Well-Architected best practices. These best practices are sourced from AWS Well-Architected whitepapers and synchronized with the Amazon Bedrock knowledge base.
 
 This tool provides users with insights into how well their infrastructure code aligns with or deviates from established AWS best practices, offering suggestions for improving cloud architecture designs.
 
@@ -24,13 +24,13 @@ Below pre-requesites are to be deployed in your local machine.
 * Install [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html).
 * Prepare CDK for python [here](https://docs.aws.amazon.com/cdk/v2/guide/work-with-cdk-python.html).
 * Install and run [Docker](https://docs.docker.com/engine/install/).
-* Enable access to **Cohere Embed English v3** and **Claude 3 Sonnet** models in your AWS region for your stack [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
+* Enable access to **Titan Text Embeddings V2** and **Claude 3.5 Sonnet** models in your AWS region for your stack [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
 ## Optional
-If you want to use a different model than "Claude 3 Sonnet", update the config.ini with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns).
+If you want to use a different model than "Claude 3.5 Sonnet", update the config.ini with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns).
 ```
 [settings]
-model_id = anthropic.claude-3-sonnet-20240229-v1:0
+model_id = anthropic.claude-3-5-sonnet-20240620-v1:0
 ```
 ## IMPORTANT SECURITY NOTE
 > By default, this project will deploy the Load Balancer scheme as [**internal**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) **(Private load balancer)**. To access the application, you will need to be in the private network connected to the deployed VPC, either via [VPC peering](https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html), VPN, or any other means. If you need to change the load balancer scheme to [**internet-facing**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme), you can modify the `public_load_balancer` parameter setting to `True` in the config.ini file, as below example. 

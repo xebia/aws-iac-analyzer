@@ -926,7 +926,7 @@ def main():
 
     uploaded_file = st.file_uploader(
         "Upload your IaC workload template (e.g. AWS CloudFormation, Terraform). The template will be reviewed based AWS Well-Architected Framework best practices.",
-        type=["yaml", "json", "yml"],
+        type=["yaml", "json", "yml", "tf"],
     )
 
     if uploaded_file is not None:

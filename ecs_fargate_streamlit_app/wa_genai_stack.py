@@ -31,7 +31,7 @@ class WAGenAIStack(Stack):
         config = configparser.ConfigParser()
         config.read("config.ini")
         model_id = config["settings"]["model_id"]
-        if config["settings"]["public_load_balancer"] == 'False':
+        if config["settings"]["public_load_balancer"] == "False":
             public_lb = False
         else:
             public_lb = True
@@ -49,7 +49,7 @@ class WAGenAIStack(Stack):
         kb = bedrock.KnowledgeBase(
             self,
             "WAFR-KnowledgeBase",
-            embeddings_model=bedrock.BedrockFoundationModel.COHERE_EMBED_ENGLISH_V3,
+            embeddings_model=bedrock.BedrockFoundationModel.TITAN_EMBED_TEXT_V2_1024,
             instruction="Use this knowledge base to answer questions about AWS Well Architected Framework Review (WAFR).",
             description="This knowledge base contains AWS Well Architected Framework Review (WAFR) reference documents",
         )
@@ -327,7 +327,6 @@ class WAGenAIStack(Stack):
             ),
             task_subnets=ec2.SubnetSelection(
                 subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-
             ),
             public_load_balancer=public_lb,
         )
