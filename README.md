@@ -190,12 +190,30 @@ After successful deployment, you can find the Application Load Balancer (ALB) DN
 
 You have two options to remove all resources created by this solution:
 
-Option 1 - Using CDK:
+### Option 1 - Using the Destroy Script (Recommended)
+
+1. Make the destroy script executable:
 ```bash
-cdk destroy
+chmod +x destroy-wa-analyzer.sh
 ```
 
-Option 2 - Using AWS Console:
+2. Run the script with default settings (us-west-2 region):
+```bash
+./destroy-wa-analyzer.sh
+```
+
+Or specify a different region:
+```bash
+./destroy-wa-analyzer.sh -r us-east-1
+```
+
+The script will automatically:
+- Verify prerequisites
+- Set up the necessary environment
+- Destroy all resources in the stack
+
+### Option 2 - Using AWS Console
+
 1. Open the CloudFormation console
 2. Find and delete the stack named `WA-IaC-Analyzer-{region}-GenAIStack`
 

@@ -4,22 +4,22 @@
 
 # 1. Make the script executable:
 # ```bash
-# chmod +x deploy-wa-analyzer.sh
+# chmod +x destroy-wa-analyzer.sh
 # ```
 
-# 2. Basic usage with defaults (us-west-2 region and basic deployment):
+# 2. Basic usage with defaults (us-west-2 region):
 # ```bash
-# ./deploy-wa-analyzer.sh
+# ./destroy-wa-analyzer.sh
 # ```
 
-# 3. Deploy to a specific region:
+# 3. Destroy stack in a specific region:
 # ```bash
-# ./deploy-wa-analyzer.sh -r us-east-1
+# ./destroy-wa-analyzer.sh -r us-east-1
 # ```
 
 # 4. Show help:
 # ```bash
-# ./deploy-wa-analyzer.sh -h
+# ./destroy-wa-analyzer.sh -h
 # ```
 
 # Exit on error
@@ -30,18 +30,18 @@ DEFAULT_REGION="us-west-2"
 
 # Print script usage
 print_usage() {
-    echo "Usage: ./deploy-wa-analyzer.sh [-r region]"
+    echo "Usage: ./destroy-wa-analyzer.sh [-r region]"
     echo ""
     echo "Options:"
     echo "  -r    AWS Region (default: us-west-2)"
-    echo "  -t    Deployment type (basic or secure, default: basic)"
+    echo "  -h    Show this help message"
     echo ""
     echo "Example:"
-    echo "  ./deploy-wa-analyzer.sh -r us-east-1 -t secure"
+    echo "  ./destroy-wa-analyzer.sh -r us-east-1"
 }
 
 # Parse command line arguments
-while getopts "r:t:h" flag; do
+while getopts "r:h" flag; do
     case "${flag}" in
         r) DEFAULT_REGION=${OPTARG};;
         h) print_usage
@@ -117,9 +117,9 @@ check_prerequisites() {
     echo "✅ All prerequisites met"
 }
 
-# Function to setup dependencies
-setup_dependencies() {
-    echo "📦 Setting up dependencies..."
+# Function to setup Python environment
+setup_python_env() {
+    echo "🐍 Setting up Python environment..."
     
     # Create and activate Python virtual environment
     echo "Creating Python virtual environment..."
@@ -134,23 +134,7 @@ setup_dependencies() {
     pip3 install --upgrade pip
     pip3 install -r requirements.txt
     
-    # Install CDK dependencies
-    echo "Installing CDK dependencies..."
-    npm install
-    
-    # Install frontend dependencies
-    echo "Installing frontend dependencies..."
-    cd ecs_fargate_app/frontend
-    npm install
-    cd ../..
-    
-    # Install backend dependencies
-    echo "Installing backend dependencies..."
-    cd ecs_fargate_app/backend
-    npm install
-    cd ../..
-    
-    echo "✅ Dependencies setup completed"
+    echo "✅ Python environment setup completed"
 }
 
 # Function to cleanup
@@ -163,9 +147,9 @@ cleanup() {
     fi
 }
 
-# Function to deploy the stack
-deploy_stack() {
-    echo "🚀 Deploying Well-Architected Analyzer stack..."
+# Function to destroy the stack
+destroy_stack() {
+    echo "🗑️ Destroying Well-Architected Analyzer stack..."
     
     # Set AWS region
     export CDK_DEPLOY_REGION=$DEFAULT_REGION
@@ -174,23 +158,18 @@ deploy_stack() {
     # Set finch for building the CDK container images
     export CDK_DOCKER=finch
     
-    # Bootstrap CDK if needed
-    echo "Bootstrapping CDK (if needed)..."
-    cdk bootstrap aws://$AWS_ACCOUNT/$DEFAULT_REGION
+    # Destroy stack
+    echo "⚠️ WARNING: This will destroy all resources in the stack!"
+    echo "Proceeding with stack destruction in 5 seconds..."
+    sleep 5
     
-    # Deploy stack
-    echo "Deploying stack..."
-    cdk deploy --require-approval never
-    
-    # Print post-deployment information
-    echo -e "\n📝 Post-Deployment Steps:"
-    echo "1. Note the ALB Domain Name from the outputs above"
-    echo "2. Access the application through the ALB domain name"
+    echo "Running 'cdk destroy --force' command..."
+    cdk destroy --force
 }
 
 # Main execution
 main() {
-    echo "🚀 Starting Well-Architected Analyzer deployment..."
+    echo "🗑️ Starting Well-Architected Analyzer stack destruction..."
     echo "Region: $DEFAULT_REGION"
     
     # Get AWS account ID
@@ -199,12 +178,12 @@ main() {
     # Set up trap to ensure cleanup runs on exit
     trap cleanup EXIT
     
-    # Run deployment steps
+    # Run destruction steps
     check_prerequisites
-    setup_dependencies
-    deploy_stack
+    setup_python_env
+    destroy_stack
     
-    echo -e "\n✅ Deployment completed successfully!"
+    echo -e "\n✅ Stack destruction completed successfully!"
 }
 
 # Run main function
