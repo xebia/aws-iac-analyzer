@@ -32,6 +32,17 @@ def get_lens_review(workload_id, lens_alias):
     return response["LensReview"]
 
 
+def upgrade_lens_review(workload_id, lens_alias):
+    client = boto3.client("wellarchitected")
+    client.upgrade_lens_review(
+        WorkloadId=workload_id,
+        LensAlias=lens_alias,
+        MilestoneName="string",
+        ClientRequestToken="string",
+    )
+    return
+
+
 def list_answers(workload_id, lens_alias):
     client = boto3.client("wellarchitected")
     answers = []
@@ -127,6 +138,9 @@ def handler(event, context):
 
     # Parse and upload Best Practices names as JSON and CSV
     try:
+        # Upgrade lens review
+        upgrade_lens_review(workload_id, lens_alias)
+
         # Get lens review
         lens_review = get_lens_review(workload_id, lens_alias)
 

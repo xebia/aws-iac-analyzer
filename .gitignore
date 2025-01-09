@@ -169,3 +169,7 @@ node_modules/
 package.json
 package-lock.json
 */asset-output/*
+
+
+.finch/
+npm-cache/

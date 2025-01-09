@@ -2,8 +2,7 @@
 import os
 
 import aws_cdk as cdk
-
-from ecs_fargate_streamlit_app.wa_genai_stack import WAGenAIStack
+from ecs_fargate_app.wa_genai_stack import WAGenAIStack
 
 app = cdk.App()
 
@@ -14,8 +13,6 @@ REGION = os.environ.get("CDK_DEPLOY_REGION")
 env = cdk.Environment(region=REGION) if REGION else None
 
 APP_PREFIX = f"WA-IaC-Analyzer-{REGION or 'default'}"
-
-app_env_vars = {"STREAMLIT_SERVER_PORT": "8501"}
 
 # Create the front-end Stack
 wa_genai_stack = WAGenAIStack(

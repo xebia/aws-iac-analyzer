@@ -1,10 +1,11 @@
-"""Frontend stack for hosting Streamlit with ECS and Fargate"""
+"""CDK stack for hosting react app in ECS and Fargate"""
 
 import configparser
 import platform
 import uuid
 
 import aws_cdk as cdk
+import aws_cdk.aws_servicediscovery as servicediscovery
 from aws_cdk import Duration, RemovalPolicy, Stack
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecs as ecs
@@ -16,13 +17,12 @@ from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_s3_deployment as s3deploy
 from aws_cdk import custom_resources as cr
-from aws_cdk.aws_ecr_assets import DockerImageAsset
+from aws_cdk.aws_ecr_assets import DockerImageAsset, Platform
 from cdklabs.generative_ai_cdk_constructs import bedrock
 from constructs import Construct
 
 
 class WAGenAIStack(Stack):
-    """Frontend stack for hosting Streamlit with ECS and Fargate"""
 
     def __init__(self, scope: Construct, construct_id: str, **kwarg) -> None:
         super().__init__(scope, construct_id, **kwarg)
@@ -69,25 +69,10 @@ class WAGenAIStack(Stack):
         wafrReferenceDeploy = s3deploy.BucketDeployment(
             self,
             "uploadwellarchitecteddocs",
-            sources=[
-                s3deploy.Source.asset(
-                    "ecs_fargate_streamlit_app/wa_genai_iac_analyzer/static/well_architected_docs"
-                )
-            ],
+            sources=[s3deploy.Source.asset("ecs_fargate_app/well_architected_docs")],
             destination_bucket=wafrReferenceDocsBucket,
         )
 
-        # S3 Bucket where customer design is stored
-        userUploadBucket = s3.Bucket(
-            self,
-            "wafr-accelerator-upload",
-            removal_policy=RemovalPolicy.DESTROY,
-            auto_delete_objects=True,
-            enforce_ssl=True,
-            server_access_logs_prefix="access-logs/",
-        )
-
-        UPLOAD_BUCKET_NAME = userUploadBucket.bucket_name
         WA_DOCS_BUCKET_NAME = wafrReferenceDocsBucket.bucket_name
 
         # Adds the created S3 bucket [docBucket] as a Data Source for Bedrock KB
@@ -172,7 +157,7 @@ class WAGenAIStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="kb_synchronizer.handler",
             code=lambda_.Code.from_asset(
-                "ecs_fargate_streamlit_app/lambda_kb_synchronizer",
+                "ecs_fargate_app/lambda_kb_synchronizer",
                 bundling=cdk.BundlingOptions(
                     image=lambda_.Runtime.PYTHON_3_12.bundling_image,
                     command=[
@@ -205,6 +190,7 @@ class WAGenAIStack(Stack):
                 actions=[
                     "wellarchitected:GetLensReview",
                     "wellarchitected:ListAnswers",
+                    "wellarchitected:UpgradeLensReview",
                 ],
                 resources=["*"],
             )
@@ -221,11 +207,22 @@ class WAGenAIStack(Stack):
             targets=[targets.LambdaFunction(kb_lambda_synchronizer)],
         )
 
-        # Build Docker image
-        imageAsset = DockerImageAsset(
+        frontend_image = DockerImageAsset(
             self,
-            "FrontendStreamlitImage",
-            directory=("ecs_fargate_streamlit_app/wa_genai_iac_analyzer/"),
+            "FrontendImage",
+            directory="ecs_fargate_app",
+            file="finch/frontend.Dockerfile",
+            platform=Platform.LINUX_AMD64,
+            build_args={"BUILDKIT_INLINE_CACHE": "1"},
+        )
+
+        backend_image = DockerImageAsset(
+            self,
+            "BackendImage",
+            directory="ecs_fargate_app",
+            file="finch/backend.Dockerfile",
+            platform=Platform.LINUX_AMD64,
+            build_args={"BUILDKIT_INLINE_CACHE": "1"},
         )
 
         # create app execute role
@@ -263,14 +260,45 @@ class WAGenAIStack(Stack):
             )
         )
         app_execute_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "wellarchitected:CreateWorkload",
+                    "wellarchitected:TagResource",
+                ],
+                resources=["*"],
+                conditions={
+                    "StringLike": {
+                        "aws:RequestTag/WorkloadName": [
+                            "DO_NOT_DELETE_temp_IaCAnalyzer_*",
+                            "IaCAnalyzer_*",
+                        ]
+                    }
+                },
+            )
+        )
+        app_execute_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "wellarchitected:DeleteWorkload",
+                ],
+                resources=["*"],
+                conditions={
+                    "StringLike": {
+                        "aws:ResourceTag/WorkloadName": [
+                            "DO_NOT_DELETE_temp_IaCAnalyzer_*",
+                            "IaCAnalyzer_*",
+                        ]
+                    }
+                },
+            )
+        )
+        app_execute_role.add_to_policy(
             iam.PolicyStatement(actions=["bedrock:InvokeModel"], resources=["*"])
         )
         app_execute_role.add_to_policy(
             iam.PolicyStatement(
-                actions=["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
+                actions=["s3:GetObject", "s3:ListBucket"],
                 resources=[
-                    f"arn:aws:s3:::{UPLOAD_BUCKET_NAME}",
-                    f"arn:aws:s3:::{UPLOAD_BUCKET_NAME}/*",
                     f"arn:aws:s3:::{WA_DOCS_BUCKET_NAME}",
                     f"arn:aws:s3:::{WA_DOCS_BUCKET_NAME}/*",
                 ],
@@ -283,7 +311,7 @@ class WAGenAIStack(Stack):
         # Create VPC to host the ECS cluster
         vpc = ec2.Vpc(
             self,
-            "StreamlitECSVpc",
+            "ECSVpc",
             ip_addresses=ec2.IpAddresses.cidr("10.0.0.0/16"),
             max_azs=2,
             nat_gateways=1,
@@ -301,45 +329,123 @@ class WAGenAIStack(Stack):
         public_subnets = vpc.select_subnets(subnet_type=ec2.SubnetType.PUBLIC)
 
         # Create ECS Cluster
-        ecs_cluster = ecs.Cluster(
-            self, "StreamlitAppCluster", vpc=vpc, container_insights=True
+        ecs_cluster = ecs.Cluster(self, "AppCluster", vpc=vpc, container_insights=True)
+
+        # Add ECS Service Discovery namespace
+        namespace = servicediscovery.PrivateDnsNamespace(
+            self, "ServiceDiscovery", name="internal", vpc=vpc
         )
 
-        # Create Fargate Service with private ALB
-        fargate_service = ecs_patterns.ApplicationLoadBalancedFargateService(
+        # Create security groups for frontend and backend
+        frontend_security_group = ec2.SecurityGroup(
             self,
-            "StreamlitAppService",
+            "FrontendSecurityGroup",
+            vpc=vpc,
+            description="Security group for frontend service",
+        )
+
+        backend_security_group = ec2.SecurityGroup(
+            self,
+            "BackendSecurityGroup",
+            vpc=vpc,
+            description="Security group for backend service",
+        )
+
+        # Create frontend service with ALB
+        frontend_service = ecs_patterns.ApplicationLoadBalancedFargateService(
+            self,
+            "FrontendService",
             cluster=ecs_cluster,
             runtime_platform=ecs.RuntimePlatform(
                 operating_system_family=ecs.OperatingSystemFamily.LINUX,
                 cpu_architecture=architecture,
             ),
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_docker_image_asset(imageAsset),
-                container_port=8501,
-                task_role=app_execute_role,
+                image=ecs.ContainerImage.from_docker_image_asset(frontend_image),
+                container_port=8080,
                 environment={
-                    "IAC_TEMPLATE_S3_BUCKET": UPLOAD_BUCKET_NAME,
-                    "WA_DOCS_S3_BUCKET": WA_DOCS_BUCKET_NAME,
-                    "KNOWLEDGE_BASE_ID": KB_ID,
-                    "MODEL_ID": model_id,
+                    # Use service discovery DNS name
+                    "VITE_API_URL": f"http://backend.internal:3000"
                 },
             ),
-            task_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
             public_load_balancer=public_lb,
+            security_groups=[frontend_security_group],
         )
 
-        # Configure health check for ALB
-        fargate_service.target_group.configure_health_check(path="/healthz")
+        # Set ALB idle timeout to 15 minutes
+        frontend_service.load_balancer.set_attribute(
+            "idle_timeout.timeout_seconds", "3600"
+        )
 
-        # Output the ALB DNS name
+        # Allow ALB to access frontend on port 8080
+        frontend_security_group.add_ingress_rule(
+            peer=frontend_service.load_balancer.connections.security_groups[
+                0
+            ],  # ALB security group
+            connection=ec2.Port.tcp(8080),
+            description="Allow ALB to access frontend",
+        )
+
+        # Allow frontend to access backend on port 3000
+        backend_security_group.add_ingress_rule(
+            peer=frontend_security_group,
+            connection=ec2.Port.tcp(3000),
+            description="Allow frontend to access backend",
+        )
+
+        # Get the ALB DNS name after frontend service is created
+        alb_dns = frontend_service.load_balancer.load_balancer_dns_name
+
+        # Configure health check for ALB
+        frontend_service.target_group.configure_health_check(path="/healthz")
+
+        # Create backend service with service discovery
+        backend_task_definition = ecs.FargateTaskDefinition(
+            self,
+            "BackendTaskDef",
+            runtime_platform=ecs.RuntimePlatform(
+                operating_system_family=ecs.OperatingSystemFamily.LINUX,
+                cpu_architecture=architecture,
+            ),
+            task_role=app_execute_role,
+        )
+
+        backend_container = backend_task_definition.add_container(
+            "BackendContainer",
+            image=ecs.ContainerImage.from_docker_image_asset(backend_image),
+            environment={
+                "WA_DOCS_S3_BUCKET": WA_DOCS_BUCKET_NAME,
+                "KNOWLEDGE_BASE_ID": KB_ID,
+                "MODEL_ID": model_id,
+                "AWS_REGION": Stack.of(self).region,
+                "FRONTEND_URL": f"http://{alb_dns}",
+            },
+            logging=ecs.LogDriver.aws_logs(stream_prefix="backend"),
+        )
+
+        backend_container.add_port_mappings(ecs.PortMapping(container_port=3000))
+
+        # Create the backend service
+        backend_service = ecs.FargateService(
+            self,
+            "BackendService",
+            cluster=ecs_cluster,
+            task_definition=backend_task_definition,
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+            ),
+            security_groups=[backend_security_group],
+        )
+
+        # Add service discovery
+        backend_service.enable_cloud_map(cloud_map_namespace=namespace, name="backend")
+
+        # Output the frontend ALB DNS name
         cdk.CfnOutput(
             self,
-            "StreamlitAppPrivateALB",
-            value=fargate_service.load_balancer.load_balancer_dns_name,
-            description="DNS name of the ALB",
+            "FrontendURL",
+            value=frontend_service.load_balancer.load_balancer_dns_name,
+            description="Frontend application URL",
         )
 
         # Output the VPC ID
