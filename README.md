@@ -20,6 +20,16 @@ The project deploys resources running on the following AWS services:
 * AWS Lambda
 * Amazon Bedrock
 
+![wa_aic_analyzer_screenshot_1_main](/assets/wa_aic_analyzer_screenshot_main.png)
+
+![wa_aic_analyzer_screenshot_2_results](/assets/wa_aic_analyzer_screenshot_results.png)
+
+![wa_aic_analyzer_screenshot_3_details](/assets/wa_aic_analyzer_screenshot_details.png)
+
+![wa_aic_analyzer_screenshot_5_wa_tool](/assets/wa_aic_analyzer_screenshot_wa_tool.png)
+
+![wa_aic_analyzer_screenshot_4_template_generation](/assets/wa_aic_analyzer_screenshot_template_generation.png)
+
 ## Prerequisites
 
 The following tools must be installed on your local machine:
