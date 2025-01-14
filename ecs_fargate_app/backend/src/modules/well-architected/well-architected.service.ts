@@ -28,7 +28,7 @@ export class WellArchitectedService {
       return await waClient.send(command);
     } catch (error) {
       this.logger.error(`Error getting lens review for workload ${workloadId}:`, error);
-      throw new Error('Failed to retrieve workload review');
+      throw new Error(error);
     }
   }
 
@@ -44,7 +44,7 @@ export class WellArchitectedService {
       return await waClient.send(command);
     } catch (error) {
       this.logger.error(`Error listing answers for workload ${workloadId}:`, error);
-      throw new Error('Failed to retrieve workload answers');
+      throw new Error(error);
     }
   }
 
@@ -62,7 +62,7 @@ export class WellArchitectedService {
       return await waClient.send(command);
     } catch (error) {
       this.logger.error(`Error updating answer for workload ${workloadId}:`, error);
-      throw new Error('Failed to update workload answer');
+      throw new Error(error);
     }
   }
 
@@ -77,7 +77,7 @@ export class WellArchitectedService {
       return await waClient.send(command);
     } catch (error) {
       this.logger.error(`Error creating milestone for workload ${workloadId}:`, error);
-      throw new Error('Failed to create workload milestone');
+      throw new Error(error);
     }
   }
 
@@ -112,7 +112,7 @@ export class WellArchitectedService {
       return summaries;
     } catch (error) {
       this.logger.error(`Error getting risk summary for workload ${workloadId}:`, error);
-      throw new Error('Failed to retrieve risk summary');
+      throw new Error(error);
     }
   }
 
@@ -157,7 +157,7 @@ export class WellArchitectedService {
       return response.WorkloadId!;
     } catch (error) {
       this.logger.error(`Error creating workload: ${error}`);
-      throw new Error('Failed to create workload');
+      throw new Error(error);
     }
   }
 
@@ -172,7 +172,7 @@ export class WellArchitectedService {
       await waClient.send(command);
     } catch (error) {
       this.logger.error(`Error deleting workload: ${error}`);
-      throw new Error('Failed to delete workload');
+      throw new Error(error);
     }
   }
 }

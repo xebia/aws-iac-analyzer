@@ -22,6 +22,8 @@ export const useAnalyzer = () => {
   const [canDeleteWorkload, setCanDeleteWorkload] = useState(false);
   const [showAnalysisCancellationAlert, setShowAnalysisCancellationAlert] = useState(false);
   const [isCancellingAnalysis, setIsCancellingAnalysis] = useState(false);
+  const [showPartialResultsWarning, setShowPartialResultsWarning] = useState(false);
+  const [partialResultsError, setPartialResultsError] = useState<string | null>(null);
 
   useEffect(() => {
     const cleanup = socketService.onAnalysisProgress((progressData) => {
@@ -42,6 +44,8 @@ export const useAnalyzer = () => {
     setIsAnalyzing(true);
     setError(null);
     setProgress(null);
+    setShowPartialResultsWarning(false);
+    setPartialResultsError(null);
     let tempWorkloadId: string | null = null;
 
     try {
@@ -51,7 +55,7 @@ export const useAnalyzer = () => {
         workloadId = tempWorkloadId;
       }
 
-      const { results, isCancelled } = await analyzerApi.analyze(
+      const { results, isCancelled, error: analysisError } = await analyzerApi.analyze(
         file,
         workloadId,
         selectedPillars
@@ -61,6 +65,9 @@ export const useAnalyzer = () => {
 
       if (isCancelled) {
         setShowAnalysisCancellationAlert(true);
+      } else if (analysisError) {
+          setShowPartialResultsWarning(true);
+          setPartialResultsError(analysisError);
       }
 
       // Delete temp workload if it was created
@@ -68,7 +75,14 @@ export const useAnalyzer = () => {
         await analyzerApi.deleteWorkload(tempWorkloadId);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      const errorMessage = err instanceof Error ? err.message : 'Analysis failed';
+      setError(errorMessage);
+
+      // If we have any results, show partial results warning
+      if (analysisResults && analysisResults.length > 0) {
+        setShowPartialResultsWarning(true);
+        setPartialResultsError('Analysis failed unexpectedly. Showing partial results.');
+      }
     } finally {
       setIsAnalyzing(false);
       setIsCancellingAnalysis(false);
@@ -227,5 +241,8 @@ export const useAnalyzer = () => {
     isCancellingAnalysis,
     showAnalysisCancellationAlert,
     setShowAnalysisCancellationAlert,
+    showPartialResultsWarning,
+    setShowPartialResultsWarning,
+    partialResultsError,
   };
 };

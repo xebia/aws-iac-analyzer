@@ -28,6 +28,9 @@ set -e
 # Default values
 DEFAULT_REGION="us-west-2"
 
+# Set environment variable to ignore ECR credentials storage
+export AWS_ECR_IGNORE_CREDS_STORAGE=true
+
 # Print script usage
 print_usage() {
     echo "Usage: ./deploy-wa-analyzer.sh [-r region]"

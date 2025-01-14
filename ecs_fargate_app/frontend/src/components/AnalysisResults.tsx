@@ -37,6 +37,7 @@ interface AnalysisResultsProps {
   setIsLoadingDetails: (loading: boolean) => void;
   uploadedFileType: string;
   selectedIaCType: IaCTemplateType;
+  setError: (error: string | null) => void;
 }
 
 interface EnhancedBestPractice extends BestPractice {
@@ -50,7 +51,7 @@ interface PreferencesType {
   visibleContent: readonly string[];
 }
 
-export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAnalyzing, onDownloadRecommendations, onGenerateIacDocument, isDownloading, isImplementing, uploadedFileContent, isLoadingDetails, setIsLoadingDetails, uploadedFileType, selectedIaCType }) => {
+export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAnalyzing, onDownloadRecommendations, onGenerateIacDocument, isDownloading, isImplementing, uploadedFileContent, isLoadingDetails, setIsLoadingDetails, uploadedFileType, selectedIaCType, setError }) => {
   const [preferences, setPreferences] = useState<PreferencesType>({
     pageSize: 10,
     visibleContent: ['pillar', 'question', 'name', 'status', 'reason', 'recommendations'],
@@ -58,17 +59,35 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [detailsContent, setDetailsContent] = useState('');
+  const [detailsError, setDetailsError] = useState<string | null>(null);
 
   const handleGetMoreDetails = async () => {
     try {
       setIsLoadingDetails(true);
-      const details = await analyzerApi.getMoreDetails(selectedItems, uploadedFileContent, uploadedFileType, selectedIaCType);
-      setDetailsContent(details);
-      setDetailsModalVisible(true);
+      setDetailsError(null);
+
+      const result = await analyzerApi.getMoreDetails(
+        selectedItems,
+        uploadedFileContent,
+        uploadedFileType,
+        selectedIaCType
+      );
+
+      if (result.error) {
+        setDetailsError(result.error);
+      }
+
+      if (result.content) {
+        setDetailsContent(result.content);
+        setDetailsModalVisible(true);
+      } else {
+        setError('No content received from analysis');
+      }
     } catch (error) {
-      console.error('Failed to get more details:', error);
+        console.error('Failed to get more details:', error); // clp
+        setError(error instanceof Error ? error.message : 'Failed to get detailed analysis');
     } finally {
-      setIsLoadingDetails(false);
+        setIsLoadingDetails(false);
     }
   };
 
@@ -302,6 +321,7 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
         visible={detailsModalVisible}
         onDismiss={() => setDetailsModalVisible(false)}
         content={detailsContent}
+        error={detailsError || undefined}
       />
     </div>
   );

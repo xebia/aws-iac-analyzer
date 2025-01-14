@@ -1,10 +1,9 @@
 {
-    "name": "well-architected-iac-analyzer",
-    "version": "1.0.0",
-    "scripts": {
-      "start": "finch compose -f finch-compose.yaml up",
-      "build": "finch compose -f finch-compose.yaml build",
-      "down": "finch compose -f finch-compose.yaml down",
-      "clean": "finch compose -f finch-compose.yaml down -v"
-    }
+  "name": "well-architected-iac-analyzer",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "./dev.sh",
+    "dev:down": "finch compose -f finch-compose.dev.yaml down",
+    "dev:clean": "finch compose -f finch-compose.dev.yaml down -v"
   }
+}

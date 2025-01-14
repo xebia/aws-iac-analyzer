@@ -4,7 +4,8 @@ import {
     Modal,
     Box,
     SpaceBetween,
-    Button
+    Button,
+    Alert
 } from '@cloudscape-design/components';
 import CopyButton from './utils/CopyButton';
 
@@ -12,12 +13,14 @@ interface DetailsModalProps {
     visible: boolean;
     onDismiss: () => void;
     content: string;
+    error?: string | undefined;
 }
 
 export const DetailsModal: React.FC<DetailsModalProps> = ({
     visible,
     onDismiss,
-    content
+    content,
+    error
 }) => {
     const handleDownload = () => {
         const now = new Date();
@@ -65,6 +68,15 @@ export const DetailsModal: React.FC<DetailsModalProps> = ({
             }
         >
             <Box padding="s">
+                {error && (
+                    <Alert
+                        type="warning"
+                        dismissible
+                        header="Partial Results"
+                    >
+                        {error}
+                    </Alert>
+                )}
                 <ReactMarkdown>{content}</ReactMarkdown>
             </Box>
         </Modal>

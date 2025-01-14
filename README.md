@@ -48,7 +48,7 @@ You have two options for deploying this solution:
 
 1. Clone the Repository
 ```bash
-git clone https://github.com/aws-samples/well-architected-iac-analyzer
+git clone https://github.com/aws-samples/well-architected-iac-analyzer.git
 cd well-architected-iac-analyzer
 ```
 
@@ -80,7 +80,7 @@ If you prefer to deploy step by step, follow these instructions:
 
 #### 1. Clone the Repository
 ```bash
-git clone https://github.com/aws-samples/well-architected-iac-analyzer
+git clone https://github.com/aws-samples/well-architected-iac-analyzer.git
 cd well-architected-iac-analyzer
 ```
 
@@ -216,6 +216,97 @@ The script will automatically:
 
 1. Open the CloudFormation console
 2. Find and delete the stack named `WA-IaC-Analyzer-{region}-GenAIStack`
+
+## Local Development
+
+For development purposes, you can run the application locally using Finch containers. This allows you to make changes to the code and see them reflected immediately without having to deploy to AWS.
+
+### Prerequisites for Local Development
+
+In addition to the main prerequisites, ensure you have:
+* AWS credentials configured with access to required services
+* Access to Amazon Bedrock service and the required models (as described in the main Prerequisites section)
+
+### Setting up Required AWS Resources
+
+> **Note for Existing Stack Users**: If you have already deployed this CDK stack in your AWS account, you can skip the manual resource creation steps below. Instead:
+> 1. Go to the CloudFormation console and find your stack (it starts with "WA-IaC-Analyzer-")
+> 2. In the "Outputs" tab of the CDK CloudFormation stack, find:
+>    - `KnowledgeBaseID`: Use this value for KNOWLEDGE_BASE_ID in your .env file (for "Setting up Local Development Environment" section below)
+>    - `WellArchitectedDocsS3Bucket`: Use this value for WA_DOCS_S3_BUCKET in your .env file (for "Setting up Local Development Environment" section below)
+> 
+> If you haven't deployed the stack yet, follow the steps below to create the required resources manually:
+
+1. Create an S3 bucket:
+   ```bash
+   aws s3 mb s3://your-bucket-name --region your-aws-region
+   ```
+
+2. Upload Well-Architected documents:
+   ```bash
+   aws s3 cp ecs_fargate_app/well_architected_docs/ s3://your-bucket-name/ --recursive
+   ```
+
+3. Create a Bedrock Knowledge Base:
+   - Go to the Amazon Bedrock console
+   - Navigate to Knowledge bases
+   - Click "Create knowledge base with vector store"
+   - Enter a name for your knowledge base
+   - Select "Amazon S3" as the data source
+   - Click "Next"
+   - Add your S3 bucket as a data source:
+     - Choose the bucket you created
+     - Leave all other settings as default
+     - Click "Next"
+   - Select "Titan Text Embeddings v2" as the embedding model and use the default Vector database settings
+   - Click "Next" and Complete the knowledge base creation
+   - Note the Knowledge Base ID from the details page
+
+### Setting up Local Development Environment
+
+1. Create a `.env` file in the root directory with the following variables:
+```ini
+AWS_REGION=your-aws-region-key
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+WA_DOCS_S3_BUCKET=your-s3-bucket
+KNOWLEDGE_BASE_ID=your-kb-id
+MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+```
+
+2. Make the development script executable:
+```bash
+chmod +x dev.sh
+```
+
+3. Start the development environment:
+```bash
+npm run dev
+```
+
+This will:
+- Build and start the frontend container (available at http://localhost:8080)
+- Build and start the backend container (available at http://localhost:3000)
+- Enable hot reloading for both frontend and backend changes
+- Mount source code directories as volumes for immediate updates
+
+### Development Commands
+
+```bash
+# Start development environment
+npm run dev
+
+# Stop development environment
+npm run dev:down
+
+# Clean up development environment (removes volumes)
+npm run dev:clean
+```
+
+### Switching Between Development and Production
+
+- Local development uses `finch-compose.dev.yaml` for container configuration
+- Production deployment continues to use CDK as described in the Installation and Deployment section
 
 ## Contributing
 

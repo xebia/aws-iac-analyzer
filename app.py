@@ -2,6 +2,7 @@
 import os
 
 import aws_cdk as cdk
+
 from ecs_fargate_app.wa_genai_stack import WAGenAIStack
 
 app = cdk.App()

@@ -25,7 +25,7 @@ export class WellArchitectedController {
     } catch (error) {
       this.logger.error(`Failed to get lens review for workload ${workloadId}:`, error);
       throw new HttpException(
-        'Failed to retrieve workload review',
+        `Failed to retrieve workload review: ${error.message || error}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -38,7 +38,7 @@ export class WellArchitectedController {
     } catch (error) {
       this.logger.error(`Failed to get risk summary for workload ${workloadId}:`, error);
       throw new HttpException(
-        'Failed to retrieve risk summary',
+        `Failed to retrieve risk summary: ${error.message || error}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -54,7 +54,7 @@ export class WellArchitectedController {
     } catch (error) {
       this.logger.error('Failed to create milestone:', error);
       throw new HttpException(
-        'Failed to create milestone',
+        `Failed to create milestone: ${error.message || error}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -72,9 +72,9 @@ export class WellArchitectedController {
         body.selectedChoices
       );
     } catch (error) {
-      this.logger.error(`Failed to update answer for workload ${workloadId}:`, error);
+      this.logger.error(`Failed to update answer for workload ${workloadId}, for question ${body.questionId}:`, error);
       throw new HttpException(
-        'Failed to update answer',
+        `Failed to update answer: ${error.message || error}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -87,7 +87,7 @@ export class WellArchitectedController {
     } catch (error) {
       this.logger.error('Failed to create workload:', error);
       throw new HttpException(
-        'Failed to create workload',
+        `Failed to create workload: ${error.message || error}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -100,7 +100,7 @@ export class WellArchitectedController {
     } catch (error) {
       this.logger.error(`Failed to delete workload ${workloadId}:`, error);
       throw new HttpException(
-        'Failed to delete workload',
+        `Failed to delete workload: ${error.message || error}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

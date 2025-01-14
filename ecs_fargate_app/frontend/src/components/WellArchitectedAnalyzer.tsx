@@ -44,6 +44,8 @@ export const WellArchitectedAnalyzer: React.FC = () => {
   const [isImageFile, setIsImageFile] = useState(false);
   const [showCancellationAlert, setShowCancellationAlert] = useState(false);
   const [documentViewTabTitle, setDocumentViewTabTitle] = useState('IaC Document');
+  const [showGenerationErrorWarning, setShowGenerationErrorWarning] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   useEffect(() => {
     const cleanup = socketService.onImplementationProgress((progressData: ImplementationProgress) => {
@@ -78,6 +80,9 @@ export const WellArchitectedAnalyzer: React.FC = () => {
     isDeleting,
     canDeleteWorkload,
     createdWorkloadId,
+    showPartialResultsWarning,
+    setShowPartialResultsWarning,
+    partialResultsError,
   } = useAnalyzer();
 
   const handleAnalyze = async () => {
@@ -123,6 +128,9 @@ export const WellArchitectedAnalyzer: React.FC = () => {
 
     try {
       setIsImplementing(true);
+      setShowGenerationErrorWarning(false);
+      setGenerationError(null);
+
       const result = await analyzerApi.generateIacDocument(
         uploadedFile.content,
         uploadedFile.name,
@@ -131,25 +139,29 @@ export const WellArchitectedAnalyzer: React.FC = () => {
         selectedIaCType
       );
 
-      if (typeof result.content === 'string') {
+      if (result.error) {
+        setShowGenerationErrorWarning(true);
+        setGenerationError(result.error);
+      }
+
+      if (result.content) {
         setUpdatedDocument({
           content: result.content,
           name: uploadedFile.name,
           templateType: selectedIaCType
         });
         setDocumentViewTabTitle('IaC Document (Updated)');
+
         if (result.isCancelled) {
           setShowCancellationAlert(true);
         }
-      } else {
-        console.error('Received invalid content format:', result.content);
-        throw new Error('Received invalid content format from server');
       }
     } catch (error) {
-      console.error('Failed to generate IaC document:', error);
+        setShowGenerationErrorWarning(true);
+        setGenerationError('An unexpected error occurred during generation.');
     } finally {
-      setIsImplementing(false);
-      setImplementationProgress(null);
+        setIsImplementing(false);
+        setImplementationProgress(null);
     }
   };
 
@@ -308,6 +320,31 @@ export const WellArchitectedAnalyzer: React.FC = () => {
         </Alert>
       )}
 
+      {showPartialResultsWarning && (
+        <Alert
+          onDismiss={() => setShowPartialResultsWarning(false)}
+          dismissible
+          type="warning"
+          header="Partial Analysis Results"
+        >
+          {partialResultsError + ' ' || 'Analysis was interrupted. Showing partial results.'}
+          You can either use these partial results or try
+          analyzing the complete file again after waiting a few minutes.
+        </Alert>
+      )}
+
+      {showGenerationErrorWarning && (
+        <Alert
+          onDismiss={() => setShowGenerationErrorWarning(false)}
+          dismissible
+          type="warning"
+          header="Partial IaC Document Generation"
+        >
+          {generationError + ' ' || 'Template generation was interrupted. Showing partial results.'}
+          You can try generating the complete document again after waiting a few minutes.
+        </Alert>
+      )}
+
       {analysisResults && (
         <Tabs
           activeTabId={activeTabId}
@@ -333,6 +370,7 @@ export const WellArchitectedAnalyzer: React.FC = () => {
                   setIsLoadingDetails={setIsLoadingDetails}
                   uploadedFileType={uploadedFile?.type || ''}
                   selectedIaCType={selectedIaCType}
+                  setError={setError}
                 />
               )
             },

@@ -78,10 +78,9 @@ export class AnalyzerService {
         this.cancelAnalysis$.next();
     }
 
-    async analyze(fileContent: string, workloadId: string, selectedPillars: string[], fileType: string): Promise<{ results: AnalysisResult[]; isCancelled: boolean }> {
+    async analyze(fileContent: string, workloadId: string, selectedPillars: string[], fileType: string): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string  }> {
+        const results: AnalysisResult[] = [];
         try {
-            const results: AnalysisResult[] = [];
-
             // Load all best practices once
             await this.loadBestPractices(workloadId);
 
@@ -112,59 +111,94 @@ export class AnalyzerService {
                 const questionGroups = pillarQuestionGroups[i];
 
                 for (const question of questionGroups) {
-                    // Check for cancellation
-                    const isCancelled = await Promise.race([
-                        cancelPromise,
-                        Promise.resolve(false)
-                    ]);
+                    try {
+                        // Check for cancellation
+                        const isCancelled = await Promise.race([
+                            cancelPromise,
+                            Promise.resolve(false)
+                        ]);
 
-                    if (isCancelled) {
+                        if (isCancelled) {
+                            this.analyzerGateway.emitAnalysisProgress({
+                                processedQuestions,
+                                totalQuestions,
+                                currentPillar: pillar,
+                                currentQuestion: 'Analysis cancelled',
+                            });
+                            return { results, isCancelled: true };
+                        }
+
+                        let kbContexts: string[];
+                        try {
+                            kbContexts = await this.retrieveFromKnowledgeBase(
+                                question.pillar,
+                                question.title
+                            );
+                        } catch (error) {
+                            this.logger.error(`Error retrieving from knowledge base: ${error}`);
+                            return { 
+                                results, 
+                                isCancelled: false, 
+                                error: `Error retrieving from knowledge base. Analysis stopped. ${error}` 
+                            };
+                        }
+
+                        // Emit progress before processing
                         this.analyzerGateway.emitAnalysisProgress({
                             processedQuestions,
                             totalQuestions,
                             currentPillar: pillar,
-                            currentQuestion: 'Analysis cancelled',
+                            currentQuestion: question.title,
                         });
-                        return { results, isCancelled: true };
+
+                        try {
+                            const analysis = await this.analyzeQuestion(
+                                fileContent,
+                                question,
+                                kbContexts,
+                                fileType
+                            );
+                            results.push(analysis);
+                        } catch (error) {
+                            this.logger.error(`Error analyzing question "${question.pillar} - ${question.title}". Error: ${error}`);
+                            // Return partial results with error
+                            return { 
+                                results, 
+                                isCancelled: false, 
+                                error: `${error}. Error analyzing question "${question.pillar} - ${question.title}". Analysis stopped, ${processedQuestions} questions where analyzed out of ${totalQuestions}.` 
+                            };
+                        }
+
+                        processedQuestions++;
+
+                        // Emit progress after processing
+                        this.analyzerGateway.emitAnalysisProgress({
+                            processedQuestions,
+                            totalQuestions,
+                            currentPillar: pillar,
+                            currentQuestion: question.title,
+                        });
+                    } catch (error) {
+                        this.logger.error(`Error processing question: ${error}`);
+                        // Return partial results with error
+                        return { 
+                            results, 
+                            isCancelled: false, 
+                            error: 'Error processing question. Analysis stopped.' 
+                        };
                     }
-
-                    const kbContexts = await this.retrieveFromKnowledgeBase(
-                        question.pillar,
-                        question.title
-                    );
-
-                    // Emit progress before processing
-                    this.analyzerGateway.emitAnalysisProgress({
-                        processedQuestions,
-                        totalQuestions,
-                        currentPillar: pillar,
-                        currentQuestion: question.title,
-                    });
-
-                    const analysis = await this.analyzeQuestion(
-                        fileContent,
-                        question,
-                        kbContexts,
-                        fileType
-                    );
-                    results.push(analysis);
-
-                    processedQuestions++;
-
-                    // Emit progress after processing
-                    this.analyzerGateway.emitAnalysisProgress({
-                        processedQuestions,
-                        totalQuestions,
-                        currentPillar: pillar,
-                        currentQuestion: question.title,
-                    });
                 }
             }
 
             return { results, isCancelled: false };
         } catch (error) {
             this.logger.error('Analysis failed:', error);
-            throw new Error('Failed to analyze template');
+            // Return partial results with error
+            return { 
+                results, 
+                isCancelled: false, 
+                error: `Showing partial results. Analysis failed with error: ${error}` 
+            };
         }
     }
 
@@ -178,7 +212,7 @@ export class AnalyzerService {
         fileType: string,
         recommendations: any[],
         templateType?: IaCTemplateType
-    ): Promise<{ content: string; isCancelled: boolean }> {
+    ): Promise<{ content: string; isCancelled: boolean; error?: string }> {
         try {
             // Only proceed if it's an image file
             if (!this.isImageFile(fileType)) {
@@ -194,42 +228,61 @@ export class AnalyzerService {
             const mediaType = fileContent.split(';')[0].split(':')[1];
 
             while (!isComplete) {
-                this.analyzerGateway.emitImplementationProgress({
-                    status: `Generating IaC document...`,
-                    progress: Math.min(iteration * 10, 90)
-                });
+                try {
+                    this.analyzerGateway.emitImplementationProgress({
+                        status: `Generating IaC document...`,
+                        progress: Math.min(iteration * 10, 90)
+                    });
 
-                iteration++;
+                    iteration++;
 
-                const response = await this.invokeBedrockModelForIacGeneration(
-                    base64Data,
-                    mediaType,
-                    recommendations,
-                    allSections.length,
-                    allSections.length > 0 ? `${JSON.stringify(allSections, null, 2)}` : 'No previous sections generated yet',
-                    templateType
-                );
+                    const response = await this.invokeBedrockModelForIacGeneration(
+                        base64Data,
+                        mediaType,
+                        recommendations,
+                        allSections.length,
+                        allSections.length > 0 ? `${JSON.stringify(allSections, null, 2)}` : 'No previous sections generated yet',
+                        templateType
+                    );
 
-                // If generation was cancelled, return what we have so far
-                if (response.isCancelled) {
-                    const sortedSections = allSections.sort((a, b) => a.order - b.order);
-                    const cancellationNote = '# Note: Template generation was cancelled. Below is a partial version.\n\n';
-                    const content = sortedSections.map(section =>
-                        `# ${section.description}\n${section.content}`
-                    ).join('\n\n');
+                    // If generation was cancelled, return what we have so far
+                    if (response.isCancelled) {
+                        const sortedSections = allSections.sort((a, b) => a.order - b.order);
+                        const cancellationNote = '# Note: Template generation was cancelled. Below is a partial version.\n\n';
+                        const content = sortedSections.map(section =>
+                            `# ${section.description}\n${section.content}`
+                        ).join('\n\n');
 
-                    return {
-                        content: cancellationNote + content,
-                        isCancelled: true
-                    };
+                        return {
+                            content: cancellationNote + content,
+                            isCancelled: true
+                        };
+                    }
+
+                    const { isComplete: batchComplete, sections } = this.parseImplementationModelResponse(response.content);
+
+                    allSections.push(...sections);
+                    isComplete = batchComplete;
+
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (error) {
+                    this.logger.error(`Error in IaC generation iteration: ${error}`);
+                    // If we have any sections generated, return them as partial results
+                    if (allSections.length > 0) {
+                        const sortedSections = allSections.sort((a, b) => a.order - b.order);
+                        const errorNote = '# Note: Template generation encountered an error. Below is a partial version.\n\n';
+                        const content = sortedSections.map(section =>
+                            `# ${section.description}\n${section.content}`
+                        ).join('\n\n');
+    
+                        return {
+                            content: errorNote + content,
+                            isCancelled: false,
+                            error: `Template generation encountered an error. Showing partial results. ${error}`
+                        };
+                    }
+                    throw error;
                 }
-
-                const { isComplete: batchComplete, sections } = this.parseImplementationModelResponse(response.content);
-
-                allSections.push(...sections);
-                isComplete = batchComplete;
-
-                await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
             this.analyzerGateway.emitImplementationProgress({
@@ -318,7 +371,7 @@ export class AnalyzerService {
         fileContent: string,
         fileType: string,
         templateType?: IaCTemplateType
-    ): Promise<string> {
+    ): Promise<{ content: string; error?: string }> {
         const filteredItems = selectedItems.filter(item => !item.applied);
         try {
             if (!selectedItems || selectedItems.length === 0) {
@@ -334,6 +387,7 @@ export class AnalyzerService {
             }
 
             let allDetails = '';
+            let hasError = false;
             const totalItems = filteredItems.length;
             const isImage = this.isImageFile(fileType);
 
@@ -343,40 +397,47 @@ export class AnalyzerService {
             });
 
             for (let i = 0; i < totalItems; i++) {
-                const item = filteredItems[i];
+                try {
+                    const item = filteredItems[i];
 
-                let itemDetails = '';
-                let isComplete = false;
+                    let itemDetails = '';
+                    let isComplete = false;
 
-                while (!isComplete) {
-                    const response = isImage
-                        ? await this.invokeBedrockModelForImageDetails(
-                            fileContent,
-                            item,
-                            itemDetails,
-                            templateType
-                        )
-                        : await this.invokeBedrockModelForMoreDetails(
-                            this.buildDetailsPrompt(item, fileContent, itemDetails),
-                            this.buildDetailsSystemPrompt()
-                        );
+                    while (!isComplete) {
+                        const response = isImage
+                            ? await this.invokeBedrockModelForImageDetails(
+                                fileContent,
+                                item,
+                                itemDetails,
+                                templateType
+                            )
+                            : await this.invokeBedrockModelForMoreDetails(
+                                this.buildDetailsPrompt(item, fileContent, itemDetails),
+                                this.buildDetailsSystemPrompt()
+                            );
 
-                    const { content, isComplete: sectionComplete } =
-                        this.parseDetailsModelResponse(response.content[0].text);
+                        const { content, isComplete: sectionComplete } =
+                            this.parseDetailsModelResponse(response.content[0].text);
 
-                    itemDetails += content;
-                    isComplete = sectionComplete;
+                        itemDetails += content;
+                        isComplete = sectionComplete;
 
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+
+                    // Update progress
+                    this.analyzerGateway.emitImplementationProgress({
+                        status: `Analyzing ${i + 1} of ${totalItems} selected best practices not applied - Best practice: '${item.name}'`,
+                        progress: Math.round(((i + 1) / totalItems) * 100)
+                    });
+
+                    allDetails += itemDetails + '\n\n---\n\n';
+                } catch (error) {
+                    this.logger.error(`Error analyzing item ${i + 1}:`, error);
+                    hasError = true;
+                    // Continue with next item instead of stopping completely
+                    continue;
                 }
-
-                // Update progress
-                this.analyzerGateway.emitImplementationProgress({
-                    status: `Analyzing ${i + 1} of ${totalItems} selected best practices not applied - Best practice: '${item.name}'`,
-                    progress: Math.round(((i + 1) / totalItems) * 100)
-                });
-
-                allDetails += itemDetails + '\n\n---\n\n';
             }
 
             this.analyzerGateway.emitImplementationProgress({
@@ -384,10 +445,26 @@ export class AnalyzerService {
                 progress: 100
             });
 
-            return allDetails.trim();
+            // If we have any details but also encountered errors
+            if (allDetails && hasError) {
+                return {
+                    content: allDetails,
+                    error: 'Some items could not be analyzed. Showing partial results.'
+                };
+            }
+
+            // If we have no details at all
+            if (!allDetails) {
+                throw new Error('Failed to generate any detailed analysis');
+            }
+
+            return { content: allDetails.trim() };
         } catch (error) {
             this.logger.error('Error getting more details:', error);
-            throw new Error('Failed to get more details');
+            if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error('Failed to get detailed analysis');
         }
     }
 
@@ -466,7 +543,7 @@ export class AnalyzerService {
             return JSON.parse(new TextDecoder().decode(response.body));
         } catch (error) {
             this.logger.error('Error invoking Bedrock model:', error);
-            throw new Error('Failed to get detailed analysis');
+            throw new Error(`Failed to get detailed analysis. Error invoking Bedrock model: ${error}`);
         }
     }
 
@@ -784,7 +861,7 @@ export class AnalyzerService {
             return parsedAnalysis;
         } catch (error) {
             this.logger.error('Error invoking Bedrock model:', error);
-            throw new Error('Failed to analyze diagram with AI model');
+            throw new Error(`Failed to analyze diagram with AI model. Error invoking Bedrock model: ${error}`);
         }
     }
 
@@ -825,7 +902,7 @@ export class AnalyzerService {
             return parsedAnalysis;
         } catch (error) {
             this.logger.error('Error invoking Bedrock model:', error);
-            throw new Error('Failed to analyze template with AI model');
+            throw new Error(`Failed to analyze template with AI model. Error invoking Bedrock model: ${error}`);
         }
     }
 
@@ -862,7 +939,7 @@ export class AnalyzerService {
             return parsedResponse;
         } catch (error) {
             this.logger.error('Error invoking Bedrock model:', error);
-            throw new Error('Failed to analyze template with AI model');
+            throw new Error(`Failed to get detailed analysis. Error invoking Bedrock model: ${error}`);
         }
     }
 
@@ -967,7 +1044,7 @@ export class AnalyzerService {
             };
         } catch (error) {
             this.logger.error('Error invoking Bedrock model:', error);
-            throw new Error('Failed to generate IaC document');
+            throw new Error(`Failed to generate IaC document. Error invoking Bedrock model: ${error}`);
         }
     }
 
@@ -1065,19 +1142,26 @@ export class AnalyzerService {
                 // Map Choice Titles to ChoiceIds
                 answer.Choices?.forEach(choice => {
                     if (choice.Title && choice.ChoiceId) {
-                        choiceIdMapping.set(choice.Title, choice.ChoiceId);
+                        // Create a unique key combining question and choice (for cases of WA questions with same BP title)
+                        const uniqueKey = `${answer.QuestionTitle}|||${choice.Title}`;
+                        choiceIdMapping.set(uniqueKey, choice.ChoiceId);
                     }
                 });
             });
 
             // Enhance best practices with their corresponding ChoiceIds and QuestionIds
-            this.cachedBestPractices = baseBestPractices.map(bp => ({
-                ...bp,
-                bestPracticeId: choiceIdMapping.get(bp['Best Practice']) ||
-                    this.generateFallbackBestPracticeId(bp['Best Practice']),
-                questionId: questionIdMapping.get(bp.Question) ||
-                    this.generateFallbackBestPracticeId(bp.Question)
-            }));
+            this.cachedBestPractices = baseBestPractices.map(bp => {
+                // Create the same unique key for lookup
+                const uniqueKey = `${bp.Question}|||${bp['Best Practice']}`;
+                
+                return {
+                    ...bp,
+                    bestPracticeId: choiceIdMapping.get(uniqueKey) ||
+                        this.generateFallbackBestPracticeId(`${bp.Question}-${bp['Best Practice']}`),
+                    questionId: questionIdMapping.get(bp.Question) ||
+                        this.generateFallbackBestPracticeId(bp.Question)
+                };
+            });
 
             return this.cachedBestPractices;
         } catch (error) {

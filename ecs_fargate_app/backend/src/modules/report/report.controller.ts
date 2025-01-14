@@ -22,7 +22,7 @@ import {
       } catch (error) {
         this.logger.error('Failed to generate report:', error);
         throw new HttpException(
-          'Failed to generate report',
+          `Failed to generate report: ${error.message || error}`,
           HttpStatus.INTERNAL_SERVER_ERROR
         );
       }
@@ -35,7 +35,7 @@ import {
       } catch (error) {
         this.logger.error('Failed to generate recommendations:', error);
         throw new HttpException(
-          'Failed to generate recommendations',
+          `Failed to generate recommendations: ${error.message || error}`,
           HttpStatus.INTERNAL_SERVER_ERROR
         );
       }

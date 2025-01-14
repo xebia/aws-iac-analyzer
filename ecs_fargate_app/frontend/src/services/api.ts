@@ -27,7 +27,7 @@ export const analyzerApi = {
     file: UploadedFile,
     workloadId: string,
     selectedPillars: string[]
-  ): Promise<{ results: AnalysisResult[]; isCancelled: boolean }> {
+  ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string }> {
     try {
       const response = await api.post('/analyzer/analyze', {
         fileContent: file.content,
@@ -126,7 +126,7 @@ export const analyzerApi = {
     fileType: string,
     recommendations: AnalysisResult[],
     templateType: IaCTemplateType
-  ): Promise<{ content: string; isCancelled: boolean }> {
+  ): Promise<{ content: string; isCancelled: boolean; error?: string }> {
     try {
       const response = await api.post('/analyzer/generate-iac', {
         fileContent,
@@ -137,7 +137,12 @@ export const analyzerApi = {
       });
       return response.data;
     } catch (error) {
-      throw handleError(error);
+      // Return the error response
+      return {
+        content: '',
+        isCancelled: false,
+        error: error instanceof Error ? error.message : 'Failed to generate IaC document'
+      };
     }
   },
 
@@ -146,7 +151,7 @@ export const analyzerApi = {
     fileContent: string,
     fileType: string,
     templateType: IaCTemplateType
-  ): Promise<string> {
+  ): Promise<{ content: string; error?: string }> {
     try {
       const response = await api.post('/analyzer/get-more-details', {
         selectedItems,
@@ -156,7 +161,10 @@ export const analyzerApi = {
       });
       return response.data;
     } catch (error) {
-      throw handleError(error);
+      return {
+        content: '',
+        error: error instanceof Error ? error.message : 'Failed to get detailed analysis'
+      };
     }
   },
 

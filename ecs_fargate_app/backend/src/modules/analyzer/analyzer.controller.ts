@@ -27,7 +27,7 @@ export class AnalyzerController {
     } catch (error) {
       this.logger.error('Analysis failed:', error);
       throw new HttpException(
-        'Failed to analyze template',
+        `Failed to analyze template: ${error.message || error}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -52,10 +52,11 @@ export class AnalyzerController {
       return result;
     } catch (error) {
       this.logger.error('IaC generation failed:', error);
-      throw new HttpException(
-        'Failed to generate IaC document',
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      return {
+        content: '',
+        isCancelled: false,
+        error: error instanceof Error ? error.message : 'Failed to generate IaC document'
+      };
     }
   }
 
@@ -64,21 +65,22 @@ export class AnalyzerController {
     selectedItems: any[];
     fileContent: string;
     fileType: string;
-    templateType: IaCTemplateType;
+    templateType?: IaCTemplateType;
   }) {
     try {
-      return await this.analyzerService.getMoreDetails(
+      const result = await this.analyzerService.getMoreDetails(
         body.selectedItems,
         body.fileContent,
         body.fileType,
         body.templateType
       );
+      return result;
     } catch (error) {
       this.logger.error('Getting more details failed:', error);
-      throw new HttpException(
-        'Failed to get more details',
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      return {
+        content: '',
+        error: error instanceof Error ? error.message : 'Failed to get detailed analysis'
+      };
     }
   }
 
@@ -96,7 +98,7 @@ export class AnalyzerController {
     } catch (error) {
       this.logger.error('Failed to cancel analysis:', error);
       throw new HttpException(
-        'Failed to cancel analysis',
+        `Failed to cancel analysis: ${error.message || error}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

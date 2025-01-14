@@ -448,6 +448,22 @@ class WAGenAIStack(Stack):
             description="Frontend application URL",
         )
 
+        # Output the ID of the Bedrock knowledge base
+        cdk.CfnOutput(
+            self,
+            "KnowledgeBaseID",
+            value=KB_ID,
+            description="ID of the Bedrock knowledge base",
+        )
+
+        # Output S3 bucket (Source of Bedrock knowledge base) with well-architected documents.
+        cdk.CfnOutput(
+            self,
+            "WellArchitectedDocsS3Bucket",
+            value=wafrReferenceDocsBucket.bucket_name,
+            description="S3 bucket (Source of Bedrock knowledge base) with well-architected documents.",
+        )
+
         # Output the VPC ID
         cdk.CfnOutput(
             self,

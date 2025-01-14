@@ -33,7 +33,7 @@ export class ReportService {
       return response.LensReviewReport?.Base64String;
     } catch (error) {
       this.logger.error('Error generating report:', error);
-      throw new Error('Failed to generate report');
+      throw new Error(error);
     }
   }
 
@@ -59,7 +59,7 @@ export class ReportService {
       return rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     } catch (error) {
       this.logger.error('Error generating recommendations CSV:', error);
-      throw new Error('Failed to generate recommendations CSV');
+      throw new Error(error);
     }
   }
 }
