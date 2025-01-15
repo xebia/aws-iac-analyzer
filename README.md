@@ -243,11 +243,6 @@ chmod +x destroy-wa-analyzer.sh
 ./destroy-wa-analyzer.sh -r us-east-1 -c docker
 ```
 
-Or specify a different region:
-```bash
-./destroy-wa-analyzer.sh -r us-east-1
-```
-
 The script will automatically:
 - Verify prerequisites
 - Set up the necessary environment
