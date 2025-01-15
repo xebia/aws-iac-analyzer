@@ -1,4 +1,6 @@
-FROM --platform=linux/amd64 node:18-alpine
+ARG PLATFORM="amd64"
+
+FROM --platform=linux/${PLATFORM} node:18-alpine
 
 WORKDIR /app
 
