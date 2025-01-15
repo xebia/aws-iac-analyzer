@@ -37,7 +37,9 @@ The following tools must be installed on your local machine:
 * [Node.js](https://nodejs.org/) (v18 or later) and npm
 * [Python](https://www.python.org/) (v3.8 or later) and pip
 * [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html)
-* [Finch](https://github.com/runfinch/finch) for container management
+* Either one of these container tools:
+  * [Finch](https://github.com/runfinch/finch?tab=readme-ov-file#installing-finch) (default)
+  * [Docker](https://docs.docker.com/get-started/get-docker/)
 * [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate credentials
 
 ### AWS Bedrock Model Access
@@ -67,14 +69,21 @@ cd well-architected-iac-analyzer
 chmod +x deploy-wa-analyzer.sh
 ```
 
-3. Deploy with default settings (us-west-2 region):
+3. Deploy with default settings (us-west-2 region and Finch as container tool):
 ```bash
 ./deploy-wa-analyzer.sh
 ```
 
-4. Or deploy to a specific region:
+4. Or deploy with specific options:
 ```bash
+# Deploy to a specific region
 ./deploy-wa-analyzer.sh -r us-east-1
+
+# Deploy using Docker instead of Finch
+./deploy-wa-analyzer.sh -c docker
+
+# Deploy to a specific region using Docker
+./deploy-wa-analyzer.sh -r us-east-1 -c docker
 ```
 
 The script will automatically:
@@ -137,10 +146,19 @@ cd ../..
 
 #### 4. Deploy the Stack
 
-Set the AWS region and container runtime:
+Set the AWS region and ignore ECR credentials storage during CDK deployment:
 ```bash
 export CDK_DEPLOY_REGION=us-west-2
-export CDK_DOCKER=finch
+export AWS_ECR_IGNORE_CREDS_STORAGE=true
+```
+
+Set the container runtime:
+```bash
+export CDK_DOCKER=finch  # For Finch (default)
+
+# OR
+
+export CDK_DOCKER=docker # For Docker
 ```
 
 Bootstrap CDK (if not already done):
@@ -207,9 +225,19 @@ You have two options to remove all resources created by this solution:
 chmod +x destroy-wa-analyzer.sh
 ```
 
-2. Run the script with default settings (us-west-2 region):
+2. Run the script:
 ```bash
+# With default settings (us-west-2 region and Finch as container tool)
 ./destroy-wa-analyzer.sh
+
+# Specify a different region
+./destroy-wa-analyzer.sh -r us-east-1
+
+# Use Docker instead of Finch
+./destroy-wa-analyzer.sh -c docker
+
+# Specify both region and container tool
+./destroy-wa-analyzer.sh -r us-east-1 -c docker
 ```
 
 Or specify a different region:
@@ -229,11 +257,12 @@ The script will automatically:
 
 ## Local Development
 
-For development purposes, you can run the application locally using Finch containers. This allows you to make changes to the code and see them reflected immediately without having to deploy to AWS.
+For development purposes, you can run the application locally using either Finch (default) or Docker containers. This allows you to make changes to the code and see them reflected immediately without having to deploy to AWS.
 
 ### Prerequisites for Local Development
 
 In addition to the main prerequisites, ensure you have:
+* Either Finch or Docker installed and running
 * AWS credentials configured with access to required services
 * Access to Amazon Bedrock service and the required models (as described in the main Prerequisites section)
 
@@ -303,8 +332,11 @@ This will:
 ### Development Commands
 
 ```bash
-# Start development environment
-npm run dev
+# Start development environment using Finch
+./dev.sh -c finch
+
+# OR, using Docker
+./dev.sh -c docker
 
 # Stop development environment
 npm run dev:down

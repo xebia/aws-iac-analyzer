@@ -7,14 +7,14 @@
 # chmod +x destroy-wa-analyzer.sh
 # ```
 
-# 2. Basic usage with defaults (us-west-2 region):
+# 2. Basic usage with defaults (us-west-2 region and finch for container tool):
 # ```bash
 # ./destroy-wa-analyzer.sh
 # ```
 
-# 3. Destroy stack in a specific region:
+# 3. Destroy stack in a specific region and using docker for container tool:
 # ```bash
-# ./destroy-wa-analyzer.sh -r us-east-1
+# ./destroy-wa-analyzer.sh -r us-east-1 -c docker
 # ```
 
 # 4. Show help:
@@ -27,29 +27,84 @@ set -e
 
 # Default values
 DEFAULT_REGION="us-west-2"
+CONTAINER_TOOL="finch"  # Default container tool
 
 # Print script usage
 print_usage() {
-    echo "Usage: ./destroy-wa-analyzer.sh [-r region]"
+    echo "Usage: ./destroy-wa-analyzer.sh [-r region] [-c container_tool]"
     echo ""
     echo "Options:"
     echo "  -r    AWS Region (default: us-west-2)"
+    echo "  -c    Container tool (finch or docker, default: finch)"
     echo "  -h    Show this help message"
     echo ""
     echo "Example:"
-    echo "  ./destroy-wa-analyzer.sh -r us-east-1"
+    echo "  ./destroy-wa-analyzer.sh -r us-east-1 -c docker"
 }
 
 # Parse command line arguments
-while getopts "r:h" flag; do
+while getopts "r:c:h" flag; do
     case "${flag}" in
         r) DEFAULT_REGION=${OPTARG};;
+        c) CONTAINER_TOOL=${OPTARG};;
         h) print_usage
            exit 0;;
         *) print_usage
            exit 1;;
     esac
 done
+
+# Validate container tool
+if [[ "$CONTAINER_TOOL" != "finch" && "$CONTAINER_TOOL" != "docker" ]]; then
+    echo "❌ Invalid container tool. Must be either 'finch' or 'docker'"
+    print_usage
+    exit 1
+fi
+
+# Function to check Docker daemon
+check_docker_daemon() {
+    echo "Checking Docker setup..."
+    
+    # First check if Docker client exists
+    if ! command -v docker &> /dev/null; then
+        echo "❌ Docker is not installed"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "Please install Docker Desktop for Mac from https://www.docker.com/products/docker-desktop"
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            echo "Please install Docker using your distribution's package manager"
+            echo "For Ubuntu/Debian: sudo apt-get install docker.io"
+            echo "For RHEL/CentOS: sudo yum install docker"
+        else
+            echo "Please install Docker and try again"
+        fi
+        exit 1
+    fi
+
+    # Try to get Docker server version and capture the output and exit status
+    local server_version
+    local exit_status
+    
+    server_version=$(docker info --format '{{.ServerVersion}}' 2>&1)
+    exit_status=$?
+
+    # Check if the command was successful and if the output doesn't contain error messages
+    if [ $exit_status -ne 0 ] || [[ $server_version == *"Cannot connect"* ]] || [[ $server_version == *"error"* ]] || [[ $server_version == *"command not found"* ]]; then
+        echo "❌ Docker daemon is not running"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            echo "Please start Docker Desktop for Mac and try again"
+            echo "You can start it from the Applications folder or menu bar icon"
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            echo "Please start Docker daemon (dockerd) and try again"
+            echo "You can start it with: sudo systemctl start docker"
+        else
+            echo "Please start Docker daemon and try again"
+        fi
+        echo "Error details: $server_version"
+        exit 1
+    fi
+    
+    echo "✅ Docker daemon is running (Server Version: $server_version)"
+}
 
 # Function to check Finch VM status
 check_finch_vm() {
@@ -84,8 +139,13 @@ check_finch_vm() {
 check_prerequisites() {
     echo "📋 Checking prerequisites..."
     
-    # Check required commands
-    local required_commands=("node" "npm" "aws" "cdk" "python3" "pip3" "finch")
+    # Define base required commands
+    local base_commands=("node" "npm" "aws" "cdk" "python3" "pip3")
+    local required_commands=("${base_commands[@]}")
+    
+    # Add container-specific command
+    required_commands+=("$CONTAINER_TOOL")
+    
     local missing_commands=()
     
     for cmd in "${required_commands[@]}"; do
@@ -105,8 +165,12 @@ check_prerequisites() {
         echo "✅ AWS credentials configured"
     fi
     
-    # Check Finch VM
-    check_finch_vm
+    # Check container runtime
+    if [ "$CONTAINER_TOOL" = "docker" ]; then
+        check_docker_daemon
+    else
+        check_finch_vm
+    fi
     
     # Exit if any commands are missing
     if [ ${#missing_commands[@]} -ne 0 ]; then
@@ -155,8 +219,9 @@ destroy_stack() {
     export CDK_DEPLOY_REGION=$DEFAULT_REGION
     echo "Using AWS Region: $DEFAULT_REGION"
 
-    # Set finch for building the CDK container images
-    export CDK_DOCKER=finch
+    # Set container runtime for building the CDK container images
+    export CDK_DOCKER=$CONTAINER_TOOL
+    echo "Using container runtime: $CONTAINER_TOOL"
     
     # Destroy stack
     echo "⚠️ WARNING: This will destroy all resources in the stack!"
@@ -171,6 +236,7 @@ destroy_stack() {
 main() {
     echo "🗑️ Starting Well-Architected Analyzer stack destruction..."
     echo "Region: $DEFAULT_REGION"
+    echo "Container Tool: $CONTAINER_TOOL"
     
     # Get AWS account ID
     AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
