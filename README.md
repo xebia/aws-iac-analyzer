@@ -20,27 +20,27 @@ The project deploys resources running on the following AWS services:
 * AWS Lambda
 * Amazon Bedrock
 
-![wa_aic_analyzer_screenshot_1_main](/assets/wa_aic_analyzer_screenshot_main.png)
+![wa_aic_analyzer_screenshot_main](/assets/wa_aic_analyzer_screenshot_main.png)
 
-![wa_aic_analyzer_screenshot_2_results](/assets/wa_aic_analyzer_screenshot_results.png)
+![wa_aic_analyzer_screenshot_results](/assets/wa_aic_analyzer_screenshot_results.png)
 
-![wa_aic_analyzer_screenshot_3_details](/assets/wa_aic_analyzer_screenshot_details.png)
+![wa_aic_analyzer_screenshot_details](/assets/wa_aic_analyzer_screenshot_details.png)
 
-![wa_aic_analyzer_screenshot_5_wa_tool](/assets/wa_aic_analyzer_screenshot_wa_tool.png)
+![wa_aic_analyzer_screenshot_wa_tool](/assets/wa_aic_analyzer_screenshot_wa_tool.png)
 
-![wa_aic_analyzer_screenshot_4_template_generation](/assets/wa_aic_analyzer_screenshot_template_generation.png)
+![wa_aic_analyzer_screenshot_template_generation](/assets/wa_aic_analyzer_screenshot_template_generation.png)
 
 ## Prerequisites
 
 The following tools must be installed on your local machine:
 
-* [Node.js](https://nodejs.org/) (v18 or later) and npm
-* [Python](https://www.python.org/) (v3.8 or later) and pip
+* [Node.js](https://nodejs.org/en/download) (v18 or later) and npm
+* [Python](https://www.python.org/downloads/) (v3.11 or later) and pip
 * [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html)
 * Either one of these container tools:
   * [Finch](https://github.com/runfinch/finch?tab=readme-ov-file#installing-finch) (default)
   * [Docker](https://docs.docker.com/get-started/get-docker/)
-* [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate credentials
+* [AWS CLI](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-install.html) configured with [appropriate credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html)
 
 ### AWS Bedrock Model Access
 
@@ -50,9 +50,9 @@ You must enable access to the following models in your AWS region:
 
 To enable these models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
-> **Note:** This application has been primarily tested with "Claude 3.5 Sonnet v2". While other Bedrock models may work, using different models might lead to unexpected results. The default model ID is set to `anthropic.claude-3-5-sonnet-20241022-v2:0`.
-
 ## Installation and Deployment
+
+> **Note:** If you would like to change the default Load Balancer scheme or AI model, check the [Configuration Options section](#configuration-options) first before deploying.
 
 You have two options for deploying this solution:
 
@@ -174,11 +174,14 @@ cdk deploy
 ## Configuration Options
 
 ### Model Selection
+
 If you want to use a different model than "Claude 3.5 Sonnet v2", update the config.ini with the correct [model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns):
 ```ini
 [settings]
 model_id = anthropic.claude-3-5-sonnet-20241022-v2:0
 ```
+
+> **Note:** This application has been primarily tested with "Claude 3.5 Sonnet v2". While other Bedrock models may work, using different models might lead to unexpected results. The default model ID is set to `anthropic.claude-3-5-sonnet-20241022-v2:0`.
 
 ## IMPORTANT SECURITY NOTE
 
