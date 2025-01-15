@@ -323,7 +323,11 @@ chmod +x dev.sh
 
 3. Start the development environment:
 ```bash
-npm run dev
+# Start development environment using Finch
+./dev.sh -c finch
+
+# OR, using Docker
+./dev.sh -c docker
 ```
 
 This will:

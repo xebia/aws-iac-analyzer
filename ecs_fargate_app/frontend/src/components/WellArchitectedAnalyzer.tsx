@@ -16,8 +16,8 @@ const DEFAULT_PILLARS: WellArchitectedPillar[] = [
   { id: 'operational-excellence', name: 'Operational Excellence', selected: true },
   { id: 'security', name: 'Security', selected: true },
   { id: 'reliability', name: 'Reliability', selected: true },
-  { id: 'performance', name: 'Performance Efficiency', selected: true },
-  { id: 'cost', name: 'Cost Optimization', selected: true },
+  { id: 'performance-efficiency', name: 'Performance Efficiency', selected: true },
+  { id: 'cost-optimization', name: 'Cost Optimization', selected: true },
   { id: 'sustainability', name: 'Sustainability', selected: true },
 ];
 

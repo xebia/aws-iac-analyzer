@@ -156,6 +156,42 @@ check_aws_credentials() {
     fi
 }
 
+# Function to setup dependencies
+setup_dependencies() {
+    echo "📦 Setting up dependencies..."
+    
+    # Create and activate Python virtual environment
+    echo "Creating Python virtual environment..."
+    python3 -m venv .venv
+    
+    # Activate virtual environment
+    echo "Activating virtual environment..."
+    source .venv/bin/activate
+    
+    # Install Python dependencies
+    echo "Installing Python dependencies..."
+    pip3 install --upgrade pip
+    pip3 install -r requirements.txt
+    
+    # Install CDK dependencies
+    echo "Installing CDK dependencies..."
+    npm install
+    
+    # Install frontend dependencies
+    echo "Installing frontend dependencies..."
+    cd ecs_fargate_app/frontend
+    npm install
+    cd ../..
+    
+    # Install backend dependencies
+    echo "Installing backend dependencies..."
+    cd ecs_fargate_app/backend
+    npm install
+    cd ../..
+    
+    echo "✅ Dependencies setup completed"
+}
+
 # Main verification process
 echo "Verifying development environment..."
 echo "Using container tool: $CONTAINER_TOOL"
@@ -178,6 +214,7 @@ fi
 check_node_version || has_error=1
 check_npm || has_error=1
 check_aws_credentials || has_error=1
+setup_dependencies
 
 # Exit if any checks failed
 if [ $has_error -eq 1 ]; then
