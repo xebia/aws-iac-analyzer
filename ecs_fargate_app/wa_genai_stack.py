@@ -39,8 +39,8 @@ class WAGenAIStack(Stack):
         random_id = str(uuid.uuid4())[:8]  # First 8 characters of a UUID
 
         platform_mapping = {
-            "x86_64": ecs.CpuArchitecture.X86_64,
-            "arm64": ecs.CpuArchitecture.ARM64,
+            "x86_64": {"fargate_architecture": ecs.CpuArchitecture.X86_64, "build_architecture": Platform.LINUX_AMD64, "build_architecture_argument": "amd64"},
+            "arm64": {"fargate_architecture": ecs.CpuArchitecture.ARM64, "build_architecture": Platform.LINUX_ARM64, "build_architecture_argument": "arm64"}
         }
         # Get architecture from platform (depending the machine that runs CDK)
         architecture = platform_mapping[platform.machine()]
@@ -212,8 +212,8 @@ class WAGenAIStack(Stack):
             "FrontendImage",
             directory="ecs_fargate_app",
             file="finch/frontend.Dockerfile",
-            platform=Platform.LINUX_AMD64,
-            build_args={"BUILDKIT_INLINE_CACHE": "1"},
+            platform=architecture["build_architecture"],
+            build_args={"BUILDKIT_INLINE_CACHE": "1", "PLATFORM": architecture["build_architecture_argument"]},
         )
 
         backend_image = DockerImageAsset(
@@ -221,8 +221,8 @@ class WAGenAIStack(Stack):
             "BackendImage",
             directory="ecs_fargate_app",
             file="finch/backend.Dockerfile",
-            platform=Platform.LINUX_AMD64,
-            build_args={"BUILDKIT_INLINE_CACHE": "1"},
+            platform=architecture["build_architecture"],
+            build_args={"BUILDKIT_INLINE_CACHE": "1", "PLATFORM": architecture["build_architecture_argument"]},
         )
 
         # create app execute role
@@ -358,7 +358,7 @@ class WAGenAIStack(Stack):
             cluster=ecs_cluster,
             runtime_platform=ecs.RuntimePlatform(
                 operating_system_family=ecs.OperatingSystemFamily.LINUX,
-                cpu_architecture=architecture,
+                cpu_architecture=architecture["fargate_architecture"],
             ),
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
                 image=ecs.ContainerImage.from_docker_image_asset(frontend_image),
@@ -405,7 +405,7 @@ class WAGenAIStack(Stack):
             "BackendTaskDef",
             runtime_platform=ecs.RuntimePlatform(
                 operating_system_family=ecs.OperatingSystemFamily.LINUX,
-                cpu_architecture=architecture,
+                cpu_architecture=architecture["fargate_architecture"],
             ),
             task_role=app_execute_role,
         )

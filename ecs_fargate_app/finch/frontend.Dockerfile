@@ -1,5 +1,7 @@
+ARG PLATFORM="amd64"
+
 # Build stage
-FROM --platform=linux/amd64 node:18-alpine as build
+FROM --platform=linux/${PLATFORM} node:18-alpine as build
 
 WORKDIR /app
 
@@ -17,7 +19,7 @@ COPY frontend/ .
 RUN npm run build
 
 # Production stage
-FROM --platform=linux/amd64 nginx:alpine
+FROM --platform=linux/${PLATFORM} nginx:alpine
 
 # Copy built files
 COPY --from=build /app/dist /usr/share/nginx/html
