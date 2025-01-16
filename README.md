@@ -20,6 +20,19 @@ The project deploys resources running on the following AWS services:
 * AWS Lambda
 * Amazon Bedrock
 
+## Features
+
+- Upload and analyze Infrastructure as Code templates:
+  - CloudFormation (YAML/JSON)
+  - Terraform (.tf)
+- Upload and analyze architecture diagrams:
+  - PNG format
+  - JPEG/JPG format
+- Generate IaC templates from architecture diagrams
+- Real-time analysis against Well-Architected best practices
+- Integration with AWS Well-Architected Tool
+- Export analysis results and recommendations
+
 ![wa_aic_analyzer_screenshot_main](/assets/wa_aic_analyzer_screenshot_main.png)
 
 ![wa_aic_analyzer_screenshot_results](/assets/wa_aic_analyzer_screenshot_results.png)
@@ -95,7 +108,9 @@ The script will automatically:
 
 ### Option 2: Manual Deployment
 
-If you prefer to deploy step by step, follow these instructions:
+<details>
+
+<summary>If you prefer to deploy step by step, expand this section for more instructions:</summary>
 
 #### 1. Clone the Repository
 ```bash
@@ -171,6 +186,14 @@ Deploy the stack:
 cdk deploy
 ```
 
+</details>
+
+## Accessing the Application
+
+After successful deployment, you can find the Application Load Balancer (ALB) DNS name in:
+1. The outputs of the `cdk deploy` command
+2. The outputs section of the CloudFormation stack named `WA-IaC-Analyzer-{region}-GenAIStack` in the AWS Console
+
 ## Configuration Options
 
 ### Model Selection
@@ -183,39 +206,20 @@ model_id = anthropic.claude-3-5-sonnet-20241022-v2:0
 
 > **Note:** This application has been primarily tested with "Claude 3.5 Sonnet v2". While other Bedrock models may work, using different models might lead to unexpected results. The default model ID is set to `anthropic.claude-3-5-sonnet-20241022-v2:0`.
 
-## IMPORTANT SECURITY NOTE
+### Load Balancer Scheme Selection
 
-> By default, this project will deploy the Load Balancer scheme as [**internal**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) **(Private load balancer)**. To access the application, you will need to be in the private network connected to the deployed VPC, either via:
-> * [VPC peering](https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html)
-> * VPN
-> * AWS Direct Connect
-> * Other network connectivity solutions
->
-> If you need to change the load balancer scheme to [**internet-facing**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme), you can modify the `public_load_balancer` parameter in the config.ini file:
-> ```ini
-> [settings]
-> public_load_balancer = True
-> ```
-> ⚠️ **Security Warning**: This project is prepared as a **demo** with **no authentication mechanism**. If you change the load balancer to be **internet-facing**, the application and all its functionalities will be accessible directly through the internet without authentication. Proceed with caution and understand the security implications.
+By default, this project will deploy the Load Balancer scheme as [**internal**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) **(Private load balancer)**. To access the application, you will need to be in the private network connected to the deployed VPC, either via:
+* [VPC peering](https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html)
+* VPN
+* AWS Direct Connect
+* Other network connectivity solutions
 
-## Accessing the Application
-
-After successful deployment, you can find the Application Load Balancer (ALB) DNS name in:
-1. The outputs of the `cdk deploy` command
-2. The outputs section of the CloudFormation stack named `WA-IaC-Analyzer-{region}-GenAIStack` in the AWS Console
-
-## Features
-
-- Upload and analyze Infrastructure as Code templates:
-  - CloudFormation (YAML/JSON)
-  - Terraform (.tf)
-- Upload and analyze architecture diagrams:
-  - PNG format
-  - JPEG/JPG format
-- Generate IaC templates from architecture diagrams
-- Real-time analysis against Well-Architected best practices
-- Integration with AWS Well-Architected Tool
-- Export analysis results and recommendations
+If you need to change the load balancer scheme to [**internet-facing**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme), you can modify the `public_load_balancer` parameter in the config.ini file:
+```ini
+[settings]
+public_load_balancer = True
+```
+⚠️ **Security Warning**: This project is prepared as a **demo** with **no authentication mechanism**. If you change the load balancer to be **internet-facing**, the application and all its functionalities will be accessible directly through the internet without authentication. Proceed with caution and understand the security implications.
 
 ## Clean up
 
