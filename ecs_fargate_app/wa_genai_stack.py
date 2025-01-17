@@ -7,15 +7,20 @@ import uuid
 import aws_cdk as cdk
 import aws_cdk.aws_servicediscovery as servicediscovery
 from aws_cdk import Duration, RemovalPolicy, Stack
+from aws_cdk import aws_certificatemanager as aws_certificatemanager
+from aws_cdk import aws_cognito as aws_cognito
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
+from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+from aws_cdk import aws_elasticloadbalancingv2_actions as actions
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_s3_deployment as s3deploy
+from aws_cdk import aws_secretsmanager as aws_secretsmanager
 from aws_cdk import custom_resources as cr
 from aws_cdk.aws_ecr_assets import DockerImageAsset, Platform
 from cdklabs.generative_ai_cdk_constructs import bedrock
@@ -24,6 +29,129 @@ from constructs import Construct
 
 class WAGenAIStack(Stack):
 
+    ## NEW
+    def parse_auth_config(self, config: configparser.ConfigParser):
+        auth_config = {
+            'enabled': config.getboolean('settings', 'authentication', fallback=False),
+            'authType': config.get('settings', 'auth_type', fallback='none'),
+            'certificateArn': config.get('settings', 'certificate_arn', fallback='')
+        }
+
+        if not auth_config['enabled']:
+            return auth_config
+
+        if not auth_config['certificateArn']:
+            raise ValueError("certificate_arn is required when authentication is enabled")
+
+        if auth_config['authType'] == 'new-cognito':
+            auth_config['cognito'] = {
+                'domainPrefix': config.get('settings', 'cognito_domain_prefix'),
+                'callbackUrls': config.get('settings', 'callback_urls').split(','),
+                'logoutUrls': config.get('settings', 'logout_urls').split(',')
+            }
+        elif auth_config['authType'] == 'existing-cognito':
+            auth_config['cognito'] = {
+                'userPoolArn': config.get('settings', 'existing_user_pool_arn'),
+                'clientId': config.get('settings', 'existing_user_pool_client_id'),
+                'domain': config.get('settings', 'existing_user_pool_domain')
+            }
+        elif auth_config['authType'] == 'oidc':
+            auth_config['oidc'] = {
+                'issuer': config.get('settings', 'oidc_issuer'),
+                'clientId': config.get('settings', 'oidc_client_id'),
+                'clientSecret': config.get('settings', 'oidc_client_secret'),
+                'authorizationEndpoint': config.get('settings', 'oidc_authorization_endpoint'),
+                'tokenEndpoint': config.get('settings', 'oidc_token_endpoint'),
+                'userInfoEndpoint': config.get('settings', 'oidc_user_info_endpoint')
+            }
+
+        return auth_config
+    
+    def create_alb_auth_action(self, auth_config: dict, alb_domain: str, existing_user_pool=None, existing_client=None, existing_domain=None) -> elbv2.ListenerAction:
+        if auth_config['authType'] == 'new-cognito':
+            # Use existing user pool, client, and domain if provided
+            if existing_user_pool and existing_client and existing_domain:
+                user_pool = existing_user_pool
+                client = existing_client
+                domain = existing_domain
+            else:
+                # Create user pool
+                user_pool = aws_cognito.UserPool(
+                    self, "WAAnalyzerUserPool",
+                    user_pool_name="WAAnalyzerUserPool",
+                    self_sign_up_enabled=False,
+                    sign_in_aliases=aws_cognito.SignInAliases(
+                        email=True
+                    ),
+                    standard_attributes=aws_cognito.StandardAttributes(
+                        email=aws_cognito.StandardAttribute(required=True)
+                    )
+                )
+
+                # Create the domain
+                domain = user_pool.add_domain("CognitoDomain",
+                    cognito_domain=aws_cognito.CognitoDomainOptions(
+                        domain_prefix=auth_config['cognito']['domainPrefix']
+                    )
+                )
+
+                # Create the client
+                client = user_pool.add_client(
+                    "WAAnalyzerClient",
+                    generate_secret=True,
+                    o_auth=aws_cognito.OAuthSettings(
+                        flows=aws_cognito.OAuthFlows(
+                            authorization_code_grant=True
+                        ),
+                        scopes=[aws_cognito.OAuthScope.OPENID],
+                        callback_urls=auth_config['cognito']['callbackUrls'],
+                        logout_urls=auth_config['cognito']['logoutUrls']
+                    ),
+                    auth_flows=aws_cognito.AuthFlow(
+                        user_password=True,
+                        user_srp=True
+                    ),
+                    prevent_user_existence_errors=True
+                )
+
+            return actions.AuthenticateCognitoAction(
+                user_pool=user_pool,
+                user_pool_client=client,
+                user_pool_domain=domain,
+                next=elbv2.ListenerAction.forward([self.frontend_target_group])
+            )
+        elif auth_config['authType'] == 'existing-cognito':
+            user_pool = aws_cognito.UserPool.from_user_pool_arn(
+                self, "ImportedUserPool", 
+                auth_config['cognito']['userPoolArn']
+            )
+            
+            domain = aws_cognito.UserPoolDomain.from_domain_name(
+                self, "ImportedDomain",
+                domain_name=auth_config['cognito']['domain']
+            )
+
+            return actions.AuthenticateCognitoAction(
+                user_pool=user_pool,
+                user_pool_client_id=auth_config['cognito']['clientId'],
+                user_pool_domain=domain,
+                next=elbv2.ListenerAction.forward([self.frontend_target_group])
+            )
+        elif auth_config['authType'] == 'oidc':
+            # OIDC configuration
+            return elbv2.ListenerAction.authenticate_oidc(
+                authorization_endpoint=auth_config['oidc']['authorizationEndpoint'],
+                client_id=auth_config['oidc']['clientId'],
+                client_secret=aws_secretsmanager.Secret(
+                    self, "OidcClientSecret",
+                    secret_string=auth_config['oidc']['clientSecret']
+                ),
+                issuer=auth_config['oidc']['issuer'],
+                token_endpoint=auth_config['oidc']['tokenEndpoint'],
+                user_info_endpoint=auth_config['oidc']['userInfoEndpoint'],
+                next=elbv2.ListenerAction.forward([self.frontend_target_group])
+            )
+
     def __init__(self, scope: Construct, construct_id: str, **kwarg) -> None:
         super().__init__(scope, construct_id, **kwarg)
 
@@ -31,10 +159,10 @@ class WAGenAIStack(Stack):
         config = configparser.ConfigParser()
         config.read("config.ini")
         model_id = config["settings"]["model_id"]
-        if config["settings"]["public_load_balancer"] == "False":
-            public_lb = False
-        else:
-            public_lb = True
+        public_lb = config["settings"].getboolean("public_load_balancer", False)
+
+        # Parse authentication config
+        auth_config = self.parse_auth_config(config)
 
         random_id = str(uuid.uuid4())[:8]  # First 8 characters of a UUID
 
@@ -371,25 +499,118 @@ class WAGenAIStack(Stack):
         )
 
         # Create frontend service with ALB
-        frontend_service = ecs_patterns.ApplicationLoadBalancedFargateService(
-            self,
-            "FrontendService",
-            cluster=ecs_cluster,
-            runtime_platform=ecs.RuntimePlatform(
-                operating_system_family=ecs.OperatingSystemFamily.LINUX,
-                cpu_architecture=architecture["fargate_architecture"],
-            ),
-            task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_docker_image_asset(frontend_image),
-                container_port=8080,
-                environment={
-                    # Use service discovery DNS name
-                    "VITE_API_URL": f"http://backend.internal:3000"
-                },
-            ),
-            public_load_balancer=public_lb,
-            security_groups=[frontend_security_group],
-        )
+        if auth_config['enabled']:
+            # Create HTTPS listener with authentication
+            certificate = aws_certificatemanager.Certificate.from_certificate_arn(
+                self, "ALBCertificate", auth_config['certificateArn']
+            )
+
+            frontend_service = ecs_patterns.ApplicationLoadBalancedFargateService(
+                self,
+                "FrontendService",
+                cluster=ecs_cluster,
+                runtime_platform=ecs.RuntimePlatform(
+                    operating_system_family=ecs.OperatingSystemFamily.LINUX,
+                    cpu_architecture=architecture["fargate_architecture"],
+                ),
+                task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+                    image=ecs.ContainerImage.from_docker_image_asset(frontend_image),
+                    container_port=8080,
+                    environment={
+                        # Use service discovery DNS name
+                        "VITE_API_URL": f"http://backend.internal:3000"
+                    },
+                ),
+                public_load_balancer=public_lb,
+                security_groups=[frontend_security_group],
+                certificate=certificate,
+                redirect_http=True
+            )
+
+            # Store reference to frontend target group
+            self.frontend_target_group = frontend_service.target_group
+
+            # Create Cognito resources once if using new Cognito
+            user_pool = None
+            client = None
+            domain = None
+            if auth_config['authType'] == 'new-cognito':
+                user_pool = aws_cognito.UserPool(
+                    self, "WAAnalyzerUserPool",
+                    user_pool_name="WAAnalyzerUserPool",
+                    self_sign_up_enabled=False,
+                    sign_in_aliases=aws_cognito.SignInAliases(
+                        email=True
+                    ),
+                    standard_attributes=aws_cognito.StandardAttributes(
+                        email=aws_cognito.StandardAttribute(required=True)
+                    )
+                )
+
+                domain = user_pool.add_domain("CognitoDomain",
+                    cognito_domain=aws_cognito.CognitoDomainOptions(
+                        domain_prefix=auth_config['cognito']['domainPrefix']
+                    )
+                )
+
+                client = user_pool.add_client(
+                    "WAAnalyzerClient",
+                    generate_secret=True,
+                    o_auth=aws_cognito.OAuthSettings(
+                        flows=aws_cognito.OAuthFlows(
+                            authorization_code_grant=True
+                        ),
+                        scopes=[aws_cognito.OAuthScope.OPENID],
+                        callback_urls=auth_config['cognito']['callbackUrls'],
+                        logout_urls=auth_config['cognito']['logoutUrls']
+                    ),
+                    auth_flows=aws_cognito.AuthFlow(
+                        user_password=True,
+                        user_srp=True
+                    ),
+                    prevent_user_existence_errors=True
+                )
+
+            # Modify the default actions of the existing HTTPS listener
+            https_listener = frontend_service.listener
+
+            # Set the authenticate action as the default action
+            auth_action = self.create_alb_auth_action(
+                auth_config,
+                frontend_service.load_balancer.load_balancer_dns_name,
+                user_pool,
+                client,
+                domain
+            )
+
+            # Remove any existing actions and add the auth action as the only action
+            https_listener.add_action(
+                "DefaultAuth",
+                action=auth_action
+            )
+        else:
+            # HTTP-only ALB creation
+            frontend_service = ecs_patterns.ApplicationLoadBalancedFargateService(
+                self,
+                "FrontendService",
+                cluster=ecs_cluster,
+                runtime_platform=ecs.RuntimePlatform(
+                    operating_system_family=ecs.OperatingSystemFamily.LINUX,
+                    cpu_architecture=architecture["fargate_architecture"],
+                ),
+                task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+                    image=ecs.ContainerImage.from_docker_image_asset(frontend_image),
+                    container_port=8080,
+                    environment={
+                        # Use service discovery DNS name
+                        "VITE_API_URL": f"http://backend.internal:3000"
+                    },
+                ),
+                public_load_balancer=public_lb,
+                security_groups=[frontend_security_group],
+            )
+            # Store reference to frontend target group
+            self.frontend_target_group = frontend_service.target_group  
 
         # Set ALB idle timeout to 15 minutes
         frontend_service.load_balancer.set_attribute(
@@ -506,3 +727,4 @@ class WAGenAIStack(Stack):
         kb_lambda_synchronizer.node.add_dependency(kbDataSource)
         kb_lambda_synchronizer.node.add_dependency(wafrReferenceDocsBucket)
         kb_lambda_synchronizer.node.add_dependency(workload_cr)
+

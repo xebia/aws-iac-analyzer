@@ -219,7 +219,64 @@ If you need to change the load balancer scheme to [**internet-facing**](https://
 [settings]
 public_load_balancer = True
 ```
-⚠️ **Security Warning**: This project is prepared as a **demo** with **no authentication mechanism**. If you change the load balancer to be **internet-facing**, the application and all its functionalities will be accessible directly through the internet without authentication. Proceed with caution and understand the security implications.
+⚠️ **Security Warning**: If you change the load balancer to be **internet-facing**, make sure to also define the Authentication Options as per below. Otherwise, the application and all its functionalities will be accessible directly through the internet without authentication. Proceed with caution and understand the security implications.
+
+### Authentication Options
+
+The application can be deployed with different authentication configurations managed via the config.ini file.
+
+**A. Default Deployment (No Authentication)**
+- HTTP listener only
+- Can be deployed as public or private ALB
+- Set in config.ini:
+  ```ini
+  authentication = False
+  ```
+
+**B. New Cognito User Pool**
+- HTTPS listener with AWS Cognito authentication
+- Creates a new Cognito user pool
+- Self-signup disabled by default
+- Set in config.ini:
+  ```ini
+  authentication = True
+  auth_type = new-cognito
+  certificate_arn = arn:aws:acm:region:account:certificate/certificate-id
+  cognito_domain_prefix = your-domain-prefix
+  callback_urls = https://your-alb-domain/oauth2/idpresponse
+  logout_urls = https://your-alb-domain
+  ```
+
+**C. Existing Cognito User Pool**
+- HTTPS listener with existing AWS Cognito authentication
+- Uses an existing Cognito user pool
+- Set in config.ini:
+  ```ini
+  authentication = True
+  auth_type = existing-cognito
+  certificate_arn = arn:aws:acm:region:account:certificate/certificate-id
+  existing_user_pool_arn = arn:aws:cognito-idp:region:account:userpool/pool-id
+  existing_user_pool_client_id = your-client-id
+  existing_user_pool_domain = your-cognito-domain
+  ```
+
+**D. OpenID Connect (OIDC)**
+- HTTPS listener with OIDC authentication
+- Compatible with any OIDC-compliant identity provider
+- Set in config.ini:
+  ```ini
+  authentication = True
+  auth_type = oidc
+  certificate_arn = arn:aws:acm:region:account:certificate/certificate-id
+  oidc_issuer = https://your-oidc-provider
+  oidc_client_id = your-client-id
+  oidc_client_secret = your-client-secret
+  oidc_authorization_endpoint = https://your-oidc-provider/auth
+  oidc_token_endpoint = https://your-oidc-provider/token
+  oidc_user_info_endpoint = https://your-oidc-provider/userinfo
+  ```
+
+> **Note:** When enabling authentication, make sure you have a valid ACM certificate for your ALB domain.
 
 ## Clean up
 
