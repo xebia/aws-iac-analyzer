@@ -1,6 +1,8 @@
 import { AppLayout, ContentLayout, Header, TopNavigation, HelpPanel } from '@cloudscape-design/components';
 import { WellArchitectedAnalyzer } from './components/WellArchitectedAnalyzer';
 import { HelpPanelProvider, useHelpPanel } from './contexts/HelpPanelContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { useUserMenuUtilities } from './components/UserMenu';
 import { helpContent } from './components/utils/help-content';
 import { HelpButton } from './components/utils/HelpButton';
 import '@cloudscape-design/global-styles/index.css';
@@ -8,6 +10,7 @@ import '@cloudscape-design/global-styles/index.css';
 function AppContent() {
   const { isToolsOpen, content, setIsToolsOpen } = useHelpPanel();
   const defaultContent = helpContent.default;
+  const userMenuUtilities = useUserMenuUtilities();
 
   return (
     <div>
@@ -20,6 +23,7 @@ function AppContent() {
             alt: "Well-Architected"
           }
         }}
+        utilities={userMenuUtilities}
       />
       <AppLayout
         content={
@@ -54,9 +58,11 @@ function AppContent() {
 
 function App() {
   return (
-    <HelpPanelProvider>
-      <AppContent />
-    </HelpPanelProvider>
+    <AuthProvider>
+      <HelpPanelProvider>
+        <AppContent />
+      </HelpPanelProvider>
+    </AuthProvider>
   );
 }
 

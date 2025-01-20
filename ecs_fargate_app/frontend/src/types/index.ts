@@ -96,3 +96,5 @@ export enum IaCTemplateType {
   CLOUDFORMATION_JSON = 'CloudFormation (.json) template',
   TERRAFORM = 'Terraform (.tf) document'
 }
+
+export * from './auth';

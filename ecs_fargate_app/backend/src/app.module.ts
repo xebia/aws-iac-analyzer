@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AnalyzerModule } from './modules/analyzer/analyzer.module';
 import { WellArchitectedModule } from './modules/well-architected/well-architected.module';
 import { ReportModule } from './modules/report/report.module';
+import { AuthModule } from './modules/auth/auth.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -14,6 +15,7 @@ import configuration from './config/configuration';
     AnalyzerModule,
     WellArchitectedModule,
     ReportModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

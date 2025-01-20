@@ -29,46 +29,58 @@ from constructs import Construct
 
 class WAGenAIStack(Stack):
 
-    ## NEW
     def parse_auth_config(self, config: configparser.ConfigParser):
         auth_config = {
-            'enabled': config.getboolean('settings', 'authentication', fallback=False),
-            'authType': config.get('settings', 'auth_type', fallback='none'),
-            'certificateArn': config.get('settings', 'certificate_arn', fallback='')
+            "enabled": config.getboolean("settings", "authentication", fallback=False),
+            "authType": config.get("settings", "auth_type", fallback="none"),
+            "certificateArn": config.get("settings", "certificate_arn", fallback=""),
         }
 
-        if not auth_config['enabled']:
+        if not auth_config["enabled"]:
             return auth_config
 
-        if not auth_config['certificateArn']:
-            raise ValueError("certificate_arn is required when authentication is enabled")
+        if not auth_config["certificateArn"]:
+            raise ValueError(
+                "certificate_arn is required when authentication is enabled"
+            )
 
-        if auth_config['authType'] == 'new-cognito':
-            auth_config['cognito'] = {
-                'domainPrefix': config.get('settings', 'cognito_domain_prefix'),
-                'callbackUrls': config.get('settings', 'callback_urls').split(','),
-                'logoutUrls': config.get('settings', 'logout_urls').split(',')
+        if auth_config["authType"] == "new-cognito":
+            auth_config["cognito"] = {
+                "domainPrefix": config.get("settings", "cognito_domain_prefix"),
+                "callbackUrls": config.get("settings", "callback_urls").split(","),
+                "logoutUrl": config.get("settings", "logout_url"),
             }
-        elif auth_config['authType'] == 'existing-cognito':
-            auth_config['cognito'] = {
-                'userPoolArn': config.get('settings', 'existing_user_pool_arn'),
-                'clientId': config.get('settings', 'existing_user_pool_client_id'),
-                'domain': config.get('settings', 'existing_user_pool_domain')
+        elif auth_config["authType"] == "existing-cognito":
+            auth_config["cognito"] = {
+                "userPoolArn": config.get("settings", "existing_user_pool_arn"),
+                "clientId": config.get("settings", "existing_user_pool_client_id"),
+                "domain": config.get("settings", "existing_user_pool_domain"),
+                "logoutUrl": config.get("settings", "existing_cognito_logout_url"),
             }
-        elif auth_config['authType'] == 'oidc':
-            auth_config['oidc'] = {
-                'issuer': config.get('settings', 'oidc_issuer'),
-                'clientId': config.get('settings', 'oidc_client_id'),
-                'clientSecret': config.get('settings', 'oidc_client_secret'),
-                'authorizationEndpoint': config.get('settings', 'oidc_authorization_endpoint'),
-                'tokenEndpoint': config.get('settings', 'oidc_token_endpoint'),
-                'userInfoEndpoint': config.get('settings', 'oidc_user_info_endpoint')
+        elif auth_config["authType"] == "oidc":
+            auth_config["oidc"] = {
+                "issuer": config.get("settings", "oidc_issuer"),
+                "clientId": config.get("settings", "oidc_client_id"),
+                "clientSecret": config.get("settings", "oidc_client_secret"),
+                "authorizationEndpoint": config.get(
+                    "settings", "oidc_authorization_endpoint"
+                ),
+                "tokenEndpoint": config.get("settings", "oidc_token_endpoint"),
+                "userInfoEndpoint": config.get("settings", "oidc_user_info_endpoint"),
+                "logoutUrl": config.get("settings", "oidc_logout_url"),
             }
 
         return auth_config
-    
-    def create_alb_auth_action(self, auth_config: dict, alb_domain: str, existing_user_pool=None, existing_client=None, existing_domain=None) -> elbv2.ListenerAction:
-        if auth_config['authType'] == 'new-cognito':
+
+    def create_alb_auth_action(
+        self,
+        auth_config: dict,
+        alb_domain: str,
+        existing_user_pool=None,
+        existing_client=None,
+        existing_domain=None,
+    ) -> elbv2.ListenerAction:
+        if auth_config["authType"] == "new-cognito":
             # Use existing user pool, client, and domain if provided
             if existing_user_pool and existing_client and existing_domain:
                 user_pool = existing_user_pool
@@ -77,22 +89,22 @@ class WAGenAIStack(Stack):
             else:
                 # Create user pool
                 user_pool = aws_cognito.UserPool(
-                    self, "WAAnalyzerUserPool",
+                    self,
+                    "WAAnalyzerUserPool",
                     user_pool_name="WAAnalyzerUserPool",
                     self_sign_up_enabled=False,
-                    sign_in_aliases=aws_cognito.SignInAliases(
-                        email=True
-                    ),
+                    sign_in_aliases=aws_cognito.SignInAliases(email=True),
                     standard_attributes=aws_cognito.StandardAttributes(
                         email=aws_cognito.StandardAttribute(required=True)
-                    )
+                    ),
                 )
 
                 # Create the domain
-                domain = user_pool.add_domain("CognitoDomain",
+                domain = user_pool.add_domain(
+                    "CognitoDomain",
                     cognito_domain=aws_cognito.CognitoDomainOptions(
-                        domain_prefix=auth_config['cognito']['domainPrefix']
-                    )
+                        domain_prefix=auth_config["cognito"]["domainPrefix"]
+                    ),
                 )
 
                 # Create the client
@@ -100,56 +112,50 @@ class WAGenAIStack(Stack):
                     "WAAnalyzerClient",
                     generate_secret=True,
                     o_auth=aws_cognito.OAuthSettings(
-                        flows=aws_cognito.OAuthFlows(
-                            authorization_code_grant=True
-                        ),
+                        flows=aws_cognito.OAuthFlows(authorization_code_grant=True),
                         scopes=[aws_cognito.OAuthScope.OPENID],
-                        callback_urls=auth_config['cognito']['callbackUrls'],
-                        logout_urls=auth_config['cognito']['logoutUrls']
+                        callback_urls=auth_config["cognito"]["callbackUrls"],
+                        logout_urls=auth_config["cognito"]["logoutUrls"],
                     ),
-                    auth_flows=aws_cognito.AuthFlow(
-                        user_password=True,
-                        user_srp=True
-                    ),
-                    prevent_user_existence_errors=True
+                    auth_flows=aws_cognito.AuthFlow(user_password=True, user_srp=True),
+                    prevent_user_existence_errors=True,
                 )
 
             return actions.AuthenticateCognitoAction(
                 user_pool=user_pool,
                 user_pool_client=client,
                 user_pool_domain=domain,
-                next=elbv2.ListenerAction.forward([self.frontend_target_group])
+                next=elbv2.ListenerAction.forward([self.frontend_target_group]),
             )
-        elif auth_config['authType'] == 'existing-cognito':
+        elif auth_config["authType"] == "existing-cognito":
             user_pool = aws_cognito.UserPool.from_user_pool_arn(
-                self, "ImportedUserPool", 
-                auth_config['cognito']['userPoolArn']
+                self, "ImportedUserPool", auth_config["cognito"]["userPoolArn"]
             )
-            
+
             domain = aws_cognito.UserPoolDomain.from_domain_name(
-                self, "ImportedDomain",
-                domain_name=auth_config['cognito']['domain']
+                self, "ImportedDomain", domain_name=auth_config["cognito"]["domain"]
             )
 
             return actions.AuthenticateCognitoAction(
                 user_pool=user_pool,
-                user_pool_client_id=auth_config['cognito']['clientId'],
+                user_pool_client_id=auth_config["cognito"]["clientId"],
                 user_pool_domain=domain,
-                next=elbv2.ListenerAction.forward([self.frontend_target_group])
+                next=elbv2.ListenerAction.forward([self.frontend_target_group]),
             )
-        elif auth_config['authType'] == 'oidc':
+        elif auth_config["authType"] == "oidc":
             # OIDC configuration
             return elbv2.ListenerAction.authenticate_oidc(
-                authorization_endpoint=auth_config['oidc']['authorizationEndpoint'],
-                client_id=auth_config['oidc']['clientId'],
+                authorization_endpoint=auth_config["oidc"]["authorizationEndpoint"],
+                client_id=auth_config["oidc"]["clientId"],
                 client_secret=aws_secretsmanager.Secret(
-                    self, "OidcClientSecret",
-                    secret_string=auth_config['oidc']['clientSecret']
+                    self,
+                    "OidcClientSecret",
+                    secret_string=auth_config["oidc"]["clientSecret"],
                 ),
-                issuer=auth_config['oidc']['issuer'],
-                token_endpoint=auth_config['oidc']['tokenEndpoint'],
-                user_info_endpoint=auth_config['oidc']['userInfoEndpoint'],
-                next=elbv2.ListenerAction.forward([self.frontend_target_group])
+                issuer=auth_config["oidc"]["issuer"],
+                token_endpoint=auth_config["oidc"]["tokenEndpoint"],
+                user_info_endpoint=auth_config["oidc"]["userInfoEndpoint"],
+                next=elbv2.ListenerAction.forward([self.frontend_target_group]),
             )
 
     def __init__(self, scope: Construct, construct_id: str, **kwarg) -> None:
@@ -163,6 +169,21 @@ class WAGenAIStack(Stack):
 
         # Parse authentication config
         auth_config = self.parse_auth_config(config)
+
+        # Create sign out URL based on auth type
+        sign_out_url = ""
+        if auth_config["enabled"]:
+            if auth_config["authType"] == "existing-cognito":
+                # For Cognito, construct base sign out URL
+                cognito_domain = auth_config["cognito"]["domain"]
+                sign_out_url = (
+                    f"{cognito_domain}/logout?"
+                    f"client_id={auth_config['cognito']['clientId']}&"
+                    f"logout_uri={auth_config['cognito']['logoutUrl']}"
+                )
+            elif auth_config["authType"] == "oidc":
+                # For OIDC, use the configured sign out endpoint if available
+                sign_out_url = auth_config["oidc"]["logoutUrl"]
 
         random_id = str(uuid.uuid4())[:8]  # First 8 characters of a UUID
 
@@ -499,10 +520,10 @@ class WAGenAIStack(Stack):
         )
 
         # Create frontend service with ALB
-        if auth_config['enabled']:
+        if auth_config["enabled"]:
             # Create HTTPS listener with authentication
             certificate = aws_certificatemanager.Certificate.from_certificate_arn(
-                self, "ALBCertificate", auth_config['certificateArn']
+                self, "ALBCertificate", auth_config["certificateArn"]
             )
 
             frontend_service = ecs_patterns.ApplicationLoadBalancedFargateService(
@@ -524,7 +545,7 @@ class WAGenAIStack(Stack):
                 public_load_balancer=public_lb,
                 security_groups=[frontend_security_group],
                 certificate=certificate,
-                redirect_http=True
+                redirect_http=True,
             )
 
             # Store reference to frontend target group
@@ -534,41 +555,51 @@ class WAGenAIStack(Stack):
             user_pool = None
             client = None
             domain = None
-            if auth_config['authType'] == 'new-cognito':
+            if auth_config["authType"] == "new-cognito":
                 user_pool = aws_cognito.UserPool(
-                    self, "WAAnalyzerUserPool",
+                    self,
+                    "WAAnalyzerUserPool",
                     user_pool_name="WAAnalyzerUserPool",
                     self_sign_up_enabled=False,
-                    sign_in_aliases=aws_cognito.SignInAliases(
-                        email=True
-                    ),
+                    sign_in_aliases=aws_cognito.SignInAliases(email=True),
                     standard_attributes=aws_cognito.StandardAttributes(
                         email=aws_cognito.StandardAttribute(required=True)
-                    )
+                    ),
                 )
 
-                domain = user_pool.add_domain("CognitoDomain",
+                domain = user_pool.add_domain(
+                    "CognitoDomain",
                     cognito_domain=aws_cognito.CognitoDomainOptions(
-                        domain_prefix=auth_config['cognito']['domainPrefix']
-                    )
+                        domain_prefix=auth_config["cognito"]["domainPrefix"]
+                    ),
+                )
+
+                # Convert logoutUrl to array
+                logout_urls = (
+                    [auth_config["cognito"]["logoutUrl"]]
+                    if auth_config["cognito"]["logoutUrl"]
+                    else []
                 )
 
                 client = user_pool.add_client(
                     "WAAnalyzerClient",
                     generate_secret=True,
                     o_auth=aws_cognito.OAuthSettings(
-                        flows=aws_cognito.OAuthFlows(
-                            authorization_code_grant=True
-                        ),
+                        flows=aws_cognito.OAuthFlows(authorization_code_grant=True),
                         scopes=[aws_cognito.OAuthScope.OPENID],
-                        callback_urls=auth_config['cognito']['callbackUrls'],
-                        logout_urls=auth_config['cognito']['logoutUrls']
+                        callback_urls=auth_config["cognito"]["callbackUrls"],
+                        logout_urls=logout_urls,
                     ),
-                    auth_flows=aws_cognito.AuthFlow(
-                        user_password=True,
-                        user_srp=True
-                    ),
-                    prevent_user_existence_errors=True
+                    auth_flows=aws_cognito.AuthFlow(user_password=True, user_srp=True),
+                    prevent_user_existence_errors=True,
+                )
+
+                # Update sign_out_url for new Cognito setup
+                sign_out_url = (
+                    f"https://{auth_config['cognito']['domainPrefix']}.auth.{Stack.of(self).region}.amazoncognito.com/logout?"
+                    f"client_id={client.user_pool_client_id}&"
+                    f"logout_uri={auth_config['cognito']['logoutUrl']}&"
+                    "response_type=code"
                 )
 
             # Modify the default actions of the existing HTTPS listener
@@ -580,14 +611,11 @@ class WAGenAIStack(Stack):
                 frontend_service.load_balancer.load_balancer_dns_name,
                 user_pool,
                 client,
-                domain
+                domain,
             )
 
             # Remove any existing actions and add the auth action as the only action
-            https_listener.add_action(
-                "DefaultAuth",
-                action=auth_action
-            )
+            https_listener.add_action("DefaultAuth", action=auth_action)
         else:
             # HTTP-only ALB creation
             frontend_service = ecs_patterns.ApplicationLoadBalancedFargateService(
@@ -610,7 +638,7 @@ class WAGenAIStack(Stack):
                 security_groups=[frontend_security_group],
             )
             # Store reference to frontend target group
-            self.frontend_target_group = frontend_service.target_group  
+            self.frontend_target_group = frontend_service.target_group
 
         # Set ALB idle timeout to 15 minutes
         frontend_service.load_balancer.set_attribute(
@@ -659,6 +687,8 @@ class WAGenAIStack(Stack):
                 "MODEL_ID": model_id,
                 "AWS_REGION": Stack.of(self).region,
                 "FRONTEND_URL": f"http://{alb_dns}",
+                "AUTH_ENABLED": str(auth_config["enabled"]).lower(),
+                "AUTH_SIGN_OUT_URL": sign_out_url,
             },
             logging=ecs.LogDriver.aws_logs(stream_prefix="backend"),
         )
@@ -720,6 +750,27 @@ class WAGenAIStack(Stack):
             description="ID of the public subnet created in the VPC",
         )
 
+        # Add authentication configuration outputs
+        if auth_config["enabled"]:
+            cdk.CfnOutput(
+                self,
+                "AuthenticationType",
+                value=auth_config["authType"],
+                description="Type of authentication configured",
+            )
+
+            if auth_config["authType"] in ["new-cognito", "existing-cognito"]:
+                cdk.CfnOutput(
+                    self,
+                    "CognitoDomain",
+                    value=(
+                        f"{auth_config['cognito']['domainPrefix']}.auth.{self.region}.amazoncognito.com"
+                        if auth_config["authType"] == "new-cognito"
+                        else auth_config["cognito"]["domain"]
+                    ),
+                    description="Cognito domain for authentication",
+                )
+
         # Node dependencies
         kbDataSource.node.add_dependency(wafrReferenceDocsBucket)
         ingestion_job_cr.node.add_dependency(kb)
@@ -727,4 +778,3 @@ class WAGenAIStack(Stack):
         kb_lambda_synchronizer.node.add_dependency(kbDataSource)
         kb_lambda_synchronizer.node.add_dependency(wafrReferenceDocsBucket)
         kb_lambda_synchronizer.node.add_dependency(workload_cr)
-

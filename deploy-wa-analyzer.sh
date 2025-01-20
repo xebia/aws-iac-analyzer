@@ -206,22 +206,55 @@ check_auth_config() {
             case "$AUTH_TYPE" in
                 "new-cognito")
                     DOMAIN_PREFIX=$(awk -F "=" '/^cognito_domain_prefix/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    CALLBACK_URLS=$(awk -F "=" '/^callback_urls/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    LOGOUT_URL=$(awk -F "=" '/^logout_url/ {gsub(/ /,"",$2); print $2}' config.ini)
                     if [ -z "$DOMAIN_PREFIX" ]; then
                         echo "❌ Error: cognito_domain_prefix is required for new-cognito auth type"
+                        exit 1
+                    fi
+                    if [ -z "$CALLBACK_URLS" ]; then
+                        echo "❌ Error: callback_urls is required for new-cognito auth type"
+                        exit 1
+                    fi
+                    if [ -z "$LOGOUT_URL" ]; then
+                        echo "❌ Error: logout_url is required for new-cognito auth type"
                         exit 1
                     fi
                     ;;
                 "existing-cognito")
                     USER_POOL_ARN=$(awk -F "=" '/^existing_user_pool_arn/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    CLIENT_ID=$(awk -F "=" '/^existing_user_pool_client_id/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    DOMAIN=$(awk -F "=" '/^existing_user_pool_domain/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    LOGOUT_URL=$(awk -F "=" '/^existing_cognito_logout_url/ {gsub(/ /,"",$2); print $2}' config.ini)
                     if [ -z "$USER_POOL_ARN" ]; then
                         echo "❌ Error: existing_user_pool_arn is required for existing-cognito auth type"
+                        exit 1
+                    fi
+                    if [ -z "$CLIENT_ID" ]; then
+                        echo "❌ Error: existing_user_pool_client_id is required for existing-cognito auth type"
+                        exit 1
+                    fi
+                    if [ -z "$DOMAIN" ]; then
+                        echo "❌ Error: existing_user_pool_domain is required for existing-cognito auth type"
+                        exit 1
+                    fi
+                    if [ -z "$LOGOUT_URL" ]; then
+                        echo "❌ Error: existing_cognito_logout_url is required for existing-cognito auth type"
                         exit 1
                     fi
                     ;;
                 "oidc")
                     OIDC_ISSUER=$(awk -F "=" '/^oidc_issuer/ {gsub(/ /,"",$2); print $2}' config.ini)
-                    if [ -z "$OIDC_ISSUER" ]; then
-                        echo "❌ Error: oidc_issuer is required for oidc auth type"
+                    OIDC_CLIENT_ID=$(awk -F "=" '/^oidc_client_id/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    OIDC_CLIENT_SECRET=$(awk -F "=" '/^oidc_client_secret/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    OIDC_AUTH_ENDPOINT=$(awk -F "=" '/^oidc_authorization_endpoint/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    OIDC_TOKEN_ENDPOINT=$(awk -F "=" '/^oidc_token_endpoint/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    OIDC_USER_INFO_ENDPOINT=$(awk -F "=" '/^oidc_user_info_endpoint/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    OIDC_LOGOUT_URL=$(awk -F "=" '/^oidc_logout_url/ {gsub(/ /,"",$2); print $2}' config.ini)
+                    if [ -z "$OIDC_ISSUER" ] || [ -z "$OIDC_CLIENT_ID" ] || [ -z "$OIDC_CLIENT_SECRET" ] || \
+                       [ -z "$OIDC_AUTH_ENDPOINT" ] || [ -z "$OIDC_TOKEN_ENDPOINT" ] || [ -z "$OIDC_USER_INFO_ENDPOINT" ] || \
+                       [ -z "$OIDC_LOGOUT_URL" ]; then
+                        echo "❌ Error: all OIDC configuration parameters are required for oidc auth type"
                         exit 1
                     fi
                     ;;

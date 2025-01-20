@@ -1,5 +1,9 @@
 export default () => ({
   port: parseInt(process.env.PORT, 10) || 3000,
+  auth: {
+    enabled: process.env.AUTH_ENABLED === 'true',
+    signOutUrl: process.env.AUTH_SIGN_OUT_URL || '',
+  },
   aws: {
     region: process.env.AWS_REGION || process.env.CDK_DEPLOY_REGION,
     s3: {
