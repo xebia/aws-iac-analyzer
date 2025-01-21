@@ -115,7 +115,7 @@ class WAGenAIStack(Stack):
                         flows=aws_cognito.OAuthFlows(authorization_code_grant=True),
                         scopes=[aws_cognito.OAuthScope.OPENID],
                         callback_urls=auth_config["cognito"]["callbackUrls"],
-                        logout_urls=auth_config["cognito"]["logoutUrls"],
+                        logout_urls=auth_config["cognito"]["logoutUrl"],
                     ),
                     auth_flows=aws_cognito.AuthFlow(user_password=True, user_srp=True),
                     prevent_user_existence_errors=True,
@@ -133,12 +133,20 @@ class WAGenAIStack(Stack):
             )
 
             domain = aws_cognito.UserPoolDomain.from_domain_name(
-                self, "ImportedDomain", domain_name=auth_config["cognito"]["domain"]
+                self,
+                "ImportedDomain",
+                user_pool_domain_name=auth_config["cognito"]["domain"],
+            )
+
+            user_pool_client = aws_cognito.UserPoolClient.from_user_pool_client_id(
+                self,
+                "ImportedUserPoolClient",
+                user_pool_client_id=auth_config["cognito"]["clientId"],
             )
 
             return actions.AuthenticateCognitoAction(
                 user_pool=user_pool,
-                user_pool_client_id=auth_config["cognito"]["clientId"],
+                user_pool_client=user_pool_client,
                 user_pool_domain=domain,
                 next=elbv2.ListenerAction.forward([self.frontend_target_group]),
             )
@@ -177,9 +185,10 @@ class WAGenAIStack(Stack):
                 # For Cognito, construct base sign out URL
                 cognito_domain = auth_config["cognito"]["domain"]
                 sign_out_url = (
-                    f"{cognito_domain}/logout?"
+                    f"https://{cognito_domain}/logout?"
                     f"client_id={auth_config['cognito']['clientId']}&"
-                    f"logout_uri={auth_config['cognito']['logoutUrl']}"
+                    f"logout_uri={auth_config['cognito']['logoutUrl']}&"
+                    "response_type=code"
                 )
             elif auth_config["authType"] == "oidc":
                 # For OIDC, use the configured sign out endpoint if available

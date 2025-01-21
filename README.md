@@ -231,6 +231,7 @@ The application can be deployed with different authentication configurations man
 - Set in config.ini:
   ```ini
   authentication = False
+  auth_type = none
   ```
 
 **B. New Cognito User Pool**
@@ -244,7 +245,7 @@ The application can be deployed with different authentication configurations man
   certificate_arn = arn:aws:acm:region:account:certificate/certificate-id
   cognito_domain_prefix = your-domain-prefix
   callback_urls = https://your-alb-domain/oauth2/idpresponse
-  logout_urls = https://your-alb-domain
+  logout_url = https://your-alb-domain
   ```
 
 **C. Existing Cognito User Pool**
@@ -258,6 +259,7 @@ The application can be deployed with different authentication configurations man
   existing_user_pool_arn = arn:aws:cognito-idp:region:account:userpool/pool-id
   existing_user_pool_client_id = your-client-id
   existing_user_pool_domain = your-cognito-domain
+  existing_cognito_logout_url = https://your-alb-domain
   ```
 
 **D. OpenID Connect (OIDC)**
@@ -274,9 +276,10 @@ The application can be deployed with different authentication configurations man
   oidc_authorization_endpoint = https://your-oidc-provider/auth
   oidc_token_endpoint = https://your-oidc-provider/token
   oidc_user_info_endpoint = https://your-oidc-provider/userinfo
+  oidc_logout_url = https://your-alb-domain
   ```
 
-> **Note:** When enabling authentication, make sure you have a valid ACM certificate for your ALB domain.
+> **Note:** When enabling authentication, make sure you have a valid ACM certificate for your DNS domain pointing to the ALB.
 
 ## Clean up
 
