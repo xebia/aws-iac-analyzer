@@ -84,7 +84,6 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
         setError('No content received from analysis');
       }
     } catch (error) {
-        console.error('Failed to get more details:', error); // clp
         setError(error instanceof Error ? error.message : 'Failed to get detailed analysis');
     } finally {
         setIsLoadingDetails(false);
