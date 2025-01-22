@@ -19,6 +19,7 @@ The project deploys resources running on the following AWS services:
 * Amazon S3
 * AWS Lambda
 * Amazon Bedrock
+* Amazon Cognito (Option - Check the [Authentication Options section](#authentication-options))
 
 ## Features
 
@@ -65,7 +66,7 @@ To enable these models, follow the instructions [here](https://docs.aws.amazon.c
 
 ## Installation and Deployment
 
-> **Note:** If you would like to change the default Load Balancer scheme or AI model, check the [Configuration Options section](#configuration-options) first before deploying.
+> **Note:** If you would like to change the default Load Balancer scheme, AI model or authentication options, check the [Configuration Options section](#configuration-options) first before deploying.
 
 You have two options for deploying this solution:
 
@@ -209,7 +210,7 @@ model_id = anthropic.claude-3-5-sonnet-20241022-v2:0
 ### Load Balancer Scheme Selection
 
 By default, this project will deploy the Load Balancer scheme as [**internal**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) **(Private load balancer)**. To access the application, you will need to be in the private network connected to the deployed VPC, either via:
-* [VPC peering](https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html)
+* VPC peering
 * VPN
 * AWS Direct Connect
 * Other network connectivity solutions
@@ -223,7 +224,15 @@ public_load_balancer = True
 
 ### Authentication Options
 
-> **Note:** Before enabling authentication, make sure you have a valid ACM certificate for the DNS domain name you plan to use for this application (pointing to the ALB).
+> **Note:** Before enabling authentication, make sure you have a valid AWS Certificate Manager (ACM) certificate covering the DNS domain name (CNAME or Alias) that you plan to use to point to this application's ALB.
+>
+> **For Example:**
+> * If you own the domain `*.example.com`
+> * And you plan to access the application via `wa-analyzer.example.com` (with a CNAME or Alias pointing to the ALB deployed by this stack)
+> * You must first [create or import a certificate in ACM](https://docs.aws.amazon.com/acm/latest/userguide/gs.html) that covers either:
+>   * `*.example.com`, or
+>   * `wa-analyzer.example.com`
+> * Then, you can add the certificate's ARN in the `certificate_arn` parameter below when deploying the stack
 
 The application can be deployed with different authentication configurations managed via the config.ini file.
 
