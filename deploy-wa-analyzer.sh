@@ -246,12 +246,11 @@ check_auth_config() {
                 "oidc")
                     OIDC_ISSUER=$(awk -F "=" '/^oidc_issuer/ {gsub(/ /,"",$2); print $2}' config.ini)
                     OIDC_CLIENT_ID=$(awk -F "=" '/^oidc_client_id/ {gsub(/ /,"",$2); print $2}' config.ini)
-                    OIDC_CLIENT_SECRET=$(awk -F "=" '/^oidc_client_secret/ {gsub(/ /,"",$2); print $2}' config.ini)
                     OIDC_AUTH_ENDPOINT=$(awk -F "=" '/^oidc_authorization_endpoint/ {gsub(/ /,"",$2); print $2}' config.ini)
                     OIDC_TOKEN_ENDPOINT=$(awk -F "=" '/^oidc_token_endpoint/ {gsub(/ /,"",$2); print $2}' config.ini)
                     OIDC_USER_INFO_ENDPOINT=$(awk -F "=" '/^oidc_user_info_endpoint/ {gsub(/ /,"",$2); print $2}' config.ini)
                     OIDC_LOGOUT_URL=$(awk -F "=" '/^oidc_logout_url/ {gsub(/ /,"",$2); print $2}' config.ini)
-                    if [ -z "$OIDC_ISSUER" ] || [ -z "$OIDC_CLIENT_ID" ] || [ -z "$OIDC_CLIENT_SECRET" ] || \
+                    if [ -z "$OIDC_ISSUER" ] || [ -z "$OIDC_CLIENT_ID" ] || \
                        [ -z "$OIDC_AUTH_ENDPOINT" ] || [ -z "$OIDC_TOKEN_ENDPOINT" ] || [ -z "$OIDC_USER_INFO_ENDPOINT" ] || \
                        [ -z "$OIDC_LOGOUT_URL" ]; then
                         echo "❌ Error: all OIDC configuration parameters are required for oidc auth type"

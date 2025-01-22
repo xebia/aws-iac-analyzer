@@ -61,7 +61,6 @@ class WAGenAIStack(Stack):
             auth_config["oidc"] = {
                 "issuer": config.get("settings", "oidc_issuer"),
                 "clientId": config.get("settings", "oidc_client_id"),
-                "clientSecret": config.get("settings", "oidc_client_secret"),
                 "authorizationEndpoint": config.get(
                     "settings", "oidc_authorization_endpoint"
                 ),
@@ -152,14 +151,16 @@ class WAGenAIStack(Stack):
             )
         elif auth_config["authType"] == "oidc":
             # OIDC configuration
+
+            # Retrieve existing secret "WAIaCAnalyzerOIDCSecret" (See README for more details about creating this secret prior deployment)
+            oidc_secret = aws_secretsmanager.Secret.from_secret_name_v2(
+                self, "OidcClientSecret", "WAIaCAnalyzerOIDCSecret"
+            )
+
             return elbv2.ListenerAction.authenticate_oidc(
                 authorization_endpoint=auth_config["oidc"]["authorizationEndpoint"],
                 client_id=auth_config["oidc"]["clientId"],
-                client_secret=aws_secretsmanager.Secret(
-                    self,
-                    "OidcClientSecret",
-                    secret_string=auth_config["oidc"]["clientSecret"],
-                ),
+                client_secret=oidc_secret.secret_value,
                 issuer=auth_config["oidc"]["issuer"],
                 token_endpoint=auth_config["oidc"]["tokenEndpoint"],
                 user_info_endpoint=auth_config["oidc"]["userInfoEndpoint"],

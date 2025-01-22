@@ -219,16 +219,18 @@ If you need to change the load balancer scheme to [**internet-facing**](https://
 [settings]
 public_load_balancer = True
 ```
-⚠️ **Security Warning**: If you change the load balancer to be **internet-facing**, make sure to also define the Authentication Options as per below. Otherwise, the application and all its functionalities will be accessible directly through the internet without authentication. Proceed with caution and understand the security implications.
+⚠️ **Security Warning**: If you change the load balancer to be **internet-facing**, make sure to also define the Authentication Options as per below. Otherwise, the application and all its functionalities will be accessible directly through the Internet without authentication. Proceed with caution and understand the security implications.
 
 ### Authentication Options
+
+> **Note:** Before enabling authentication, make sure you have a valid ACM certificate for the DNS domain name you plan to use for this application (pointing to the ALB).
 
 The application can be deployed with different authentication configurations managed via the config.ini file.
 
 **A. Default Deployment (No Authentication)**
 - HTTP listener only
 - Can be deployed as public or private ALB
-- Set in config.ini:
+- Example settings in config.ini:
   ```ini
   authentication = False
   auth_type = none
@@ -238,48 +240,71 @@ The application can be deployed with different authentication configurations man
 - HTTPS listener with AWS Cognito authentication
 - Creates a new Cognito user pool
 - Self-signup disabled by default
-- Set in config.ini:
+- Example settings in config.ini:
   ```ini
+  # In below example, "wa-analyzer.example.com" is the DNS alias that you would create pointing to the ALB deployed by this CDK stack
   authentication = True
   auth_type = new-cognito
   certificate_arn = arn:aws:acm:region:account:certificate/certificate-id
   cognito_domain_prefix = your-domain-prefix
-  callback_urls = https://your-alb-domain/oauth2/idpresponse
-  logout_url = https://your-alb-domain
+  allback_urls = https://wa-analyzer.example.com/oauth2/idpresponse
+  logout_url = https://wa-analyzer.example.com
   ```
 
 **C. Existing Cognito User Pool**
 - HTTPS listener with existing AWS Cognito authentication
 - Uses an existing Cognito user pool
-- Set in config.ini:
+- Example settings in config.ini:
   ```ini
+  # In below example, "wa-analyzer.example.com" is the DNS alias that you would create pointing to the ALB deployed by this CDK stack
   authentication = True
   auth_type = existing-cognito
   certificate_arn = arn:aws:acm:region:account:certificate/certificate-id
-  existing_user_pool_arn = arn:aws:cognito-idp:region:account:userpool/pool-id
-  existing_user_pool_client_id = your-client-id
-  existing_user_pool_domain = your-cognito-domain
-  existing_cognito_logout_url = https://your-alb-domain
+  existing_user_pool_arn = arn:aws:cognito-idp:<aws-region>:<aws-account-id>:userpool/<user-pool-id>
+  existing_user_pool_client_id = <user-pool-client-id>
+  existing_user_pool_domain = <your-existing-cognito-domain-prefix>.auth.<aws-region>.amazoncognito.com # Example using Cognito prefix domain: https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-assign-domain-prefix.html
+  # Or; existing_user_pool_domain = wa-analyzer-auth.example.com # Example of custom domain (e.g. wa-analyzer-auth.example.com): https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-add-custom-domain.html)
+  existing_cognito_logout_url = https://wa-analyzer.example.com
   ```
 
 **D. OpenID Connect (OIDC)**
 - HTTPS listener with OIDC authentication
 - Compatible with any OIDC-compliant identity provider
-- Set in config.ini:
-  ```ini
-  authentication = True
-  auth_type = oidc
-  certificate_arn = arn:aws:acm:region:account:certificate/certificate-id
-  oidc_issuer = https://your-oidc-provider
-  oidc_client_id = your-client-id
-  oidc_client_secret = your-client-secret
-  oidc_authorization_endpoint = https://your-oidc-provider/auth
-  oidc_token_endpoint = https://your-oidc-provider/token
-  oidc_user_info_endpoint = https://your-oidc-provider/userinfo
-  oidc_logout_url = https://your-alb-domain
-  ```
 
-> **Note:** When enabling authentication, make sure you have a valid ACM certificate for your DNS domain pointing to the ALB.
+If you plan to use OIDC authentication (`auth_type = oidc`), follow these steps:
+
+1. **Before deployment**, create a secret in AWS Secrets Manager named `WAIaCAnalyzerOIDCSecret` containing your OIDC client secret **before** deploying the stack. The secret must be created in the same AWS region where you plan to deploy the stack:
+   ```bash
+   # Using AWS CLI
+   aws secretsmanager create-secret \
+     --name WAIaCAnalyzerOIDCSecret \
+     --secret-string "your-oidc-client-secret" \
+     --region <aws-region>
+
+   # Or you can create it via the AWS Console:
+   # 1. Go to AWS Secrets Manager console
+   # 2. Click "Store a new secret"
+   # 3. Choose "Other type of secret"
+   # 4. Enter your OIDC client secret as a plaintext value
+   # 5. Set the secret name exactly as: WAIaCAnalyzerOIDCSecret
+   # 6. Do not add any automatic rotation
+   # 7. Complete the secret creation
+   ```
+
+2. Configure OIDC settings in config.ini:
+   ```ini
+   # Below is an example when using Okta as your OIDC IdP, refer to the config.ini file for more examples. 
+   # In below example, "wa-analyzer.example.com" is the DNS alias that you would create pointing to the ALB deployed by this CDK stack
+   authentication = True
+   auth_type = oidc
+   certificate_arn = arn:aws:acm:region:account:certificate/certificate-id
+   oidc_issuer = https://<okta-tenant-id>.us.auth0.com/authorize
+   oidc_client_id = <okta-client-id>
+   oidc_authorization_endpoint = https://<okta-tenant-id>.us.auth0.com/authorize
+   oidc_token_endpoint = https://<okta-tenant-id>.us.auth0.com/oauth/token
+   oidc_user_info_endpoint = https://<okta-tenant-id>.us.auth0.com/userinfo
+   oidc_logout_url = https://<okta-tenant-id>.us.auth0.com/v2/logout?client_id=<oidc-client-id>&returnTo=https://wa-analyzer.example.com (# Refer to https://auth0.com/docs/authenticate/login/logout)
+   ```
 
 ## Clean up
 
