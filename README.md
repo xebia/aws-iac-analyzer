@@ -19,7 +19,7 @@ The project deploys resources running on the following AWS services:
 * Amazon S3
 * AWS Lambda
 * Amazon Bedrock
-* Amazon Cognito (Option - Check the [Authentication Options section](#authentication-options))
+* Amazon Cognito (Optional - Check the [Authentication Options section](#authentication-options))
 
 ## Features
 
