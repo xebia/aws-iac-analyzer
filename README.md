@@ -52,7 +52,7 @@ The following tools must be installed on your local machine:
 * [Python](https://www.python.org/downloads/) (v3.11 or later) and pip
 * [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html)
 * Either one of these container tools:
-  * [Finch](https://github.com/runfinch/finch?tab=readme-ov-file#installing-finch) (default)
+  * [Finch](https://github.com/runfinch/finch?tab=readme-ov-file#installing-finch)
   * [Docker](https://docs.docker.com/get-started/get-docker/)
 * [AWS CLI](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-install.html) configured with [appropriate credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html)
 
@@ -83,21 +83,13 @@ cd well-architected-iac-analyzer
 chmod +x deploy-wa-analyzer.sh
 ```
 
-3. Deploy with default settings (us-west-2 region and Finch as container tool):
+3. Deploy with required parameters:
 ```bash
-./deploy-wa-analyzer.sh
-```
+# Deploy using Docker
+./deploy-wa-analyzer.sh -r us-west-2 -c docker
 
-4. Or deploy with specific options:
-```bash
-# Deploy to a specific region
-./deploy-wa-analyzer.sh -r us-east-1
-
-# Deploy using Docker instead of Finch
-./deploy-wa-analyzer.sh -c docker
-
-# Deploy to a specific region using Docker
-./deploy-wa-analyzer.sh -r us-east-1 -c docker
+# Or deploy using Finch
+./deploy-wa-analyzer.sh -r us-west-2 -c finch
 ```
 
 The script will automatically:
@@ -170,7 +162,7 @@ export AWS_ECR_IGNORE_CREDS_STORAGE=true
 
 Set the container runtime:
 ```bash
-export CDK_DOCKER=finch  # For Finch (default)
+export CDK_DOCKER=finch  # For Finch
 
 # OR
 
@@ -326,19 +318,13 @@ You have two options to remove all resources created by this solution:
 chmod +x destroy-wa-analyzer.sh
 ```
 
-2. Run the script:
+2. Run the script with required parameters. Make sure to use the same region where you deployed the stack:
 ```bash
-# With default settings (us-west-2 region and Finch as container tool)
-./destroy-wa-analyzer.sh
+# Clean up using Docker
+./destroy-wa-analyzer.sh -r us-west-2 -c docker
 
-# Specify a different region
-./destroy-wa-analyzer.sh -r us-east-1
-
-# Use Docker instead of Finch
-./destroy-wa-analyzer.sh -c docker
-
-# Specify both region and container tool
-./destroy-wa-analyzer.sh -r us-east-1 -c docker
+# Or clean up using Finch
+./destroy-wa-analyzer.sh -r us-west-2 -c finch
 ```
 
 The script will automatically:
@@ -353,7 +339,7 @@ The script will automatically:
 
 ## Local Development
 
-For development purposes, you can run the application locally using either Finch (default) or Docker containers. This allows you to make changes to the code and see them reflected immediately without having to deploy to AWS.
+For development purposes, you can run the application locally using either Finch or Docker containers. This allows you to make changes to the code and see them reflected immediately without having to deploy code changes into your AWS stack.
 
 ### Prerequisites for Local Development
 
@@ -414,13 +400,13 @@ MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 chmod +x dev.sh
 ```
 
-3. Start the development environment:
+3. Start the development environment using either Docker or Finch:
 ```bash
-# Start development environment using Finch
-./dev.sh -c finch
+# Using Docker
+./dev.sh -c docker -up
 
-# OR, using Docker
-./dev.sh -c docker
+# Or using Finch
+./dev.sh -c finch -up
 ```
 
 This will:
@@ -429,21 +415,29 @@ This will:
 - Enable hot reloading for both frontend and backend changes
 - Mount source code directories as volumes for immediate updates
 
-### Development Commands
+4. To stop the development environment:
+```bash
+# Using Docker
+./dev.sh -c docker -down
+
+# Or using Finch
+./dev.sh -c finch -down
+```
+
+### Development Commands Reference
 
 ```bash
-# Start development environment using Finch
-./dev.sh -c finch
-
-# OR, using Docker
-./dev.sh -c docker
+# Start development environment
+./dev.sh -c <container_tool> -up
 
 # Stop development environment
-npm run dev:down
+./dev.sh -c <container_tool> -down
 
-# Clean up development environment (removes volumes)
-npm run dev:clean
+# Show help and usage information
+./dev.sh -h
 ```
+
+Where `<container_tool>` is either `docker` or `finch`.
 
 ### Switching Between Development and Production
 

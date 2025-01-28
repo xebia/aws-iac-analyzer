@@ -1,23 +1,16 @@
 #!/bin/bash
 
-# Instructions for using the script:
-
 # 1. Make the script executable:
 # ```bash
 # chmod +x deploy-wa-analyzer.sh
 # ```
 
-# 2. Basic usage with defaults (us-west-2 region and finch for container tool):
+# 2. Deploy with required parameters:
 # ```bash
-# ./deploy-wa-analyzer.sh
+# ./deploy-wa-analyzer.sh -r us-west-2 -c docker
 # ```
 
-# 3. Deploy to a specific region and using docker for container tool:
-# ```bash
-# ./deploy-wa-analyzer.sh -r us-east-1 -c docker
-# ```
-
-# 4. Show help:
+# 3. Show help:
 # ```bash
 # ./deploy-wa-analyzer.sh -h
 # ```
@@ -25,20 +18,18 @@
 # Exit on error
 set -e
 
-# Default values
-DEFAULT_REGION="us-west-2" # Default deployment region
-CONTAINER_TOOL="finch"  # Default container tool
-
 # Set environment variable to ignore ECR credentials storage
 export AWS_ECR_IGNORE_CREDS_STORAGE=true
 
 # Print script usage
 print_usage() {
-    echo "Usage: ./deploy-wa-analyzer.sh [-r region] [-c container_tool]"
+    echo "Usage: ./deploy-wa-analyzer.sh -r region -c container_tool"
     echo ""
-    echo "Options:"
-    echo "  -r    AWS Region (default: us-west-2)"
-    echo "  -c    Container tool (finch or docker, default: finch)"
+    echo "Required Options:"
+    echo "  -r    AWS Region"
+    echo "  -c    Container tool (finch or docker)"
+    echo ""
+    echo "Additional Options:"
     echo "  -h    Show this help message"
     echo ""
     echo "Example:"
@@ -48,7 +39,7 @@ print_usage() {
 # Parse command line arguments
 while getopts "r:c:h" flag; do
     case "${flag}" in
-        r) DEFAULT_REGION=${OPTARG};;
+        r) REGION=${OPTARG};;
         c) CONTAINER_TOOL=${OPTARG};;
         h) print_usage
            exit 0;;
@@ -57,12 +48,29 @@ while getopts "r:c:h" flag; do
     esac
 done
 
-# Validate container tool
+# Validate region is provided
+if [ -z "$REGION" ]; then
+    echo "❌ Error: Region (-r) is required"
+    print_usage
+    exit 1
+fi
+
+# Validate container tool is provided
+if [ -z "$CONTAINER_TOOL" ]; then
+    echo "❌ Error: Container tool (-c) is required. Must be either 'finch' or 'docker'"
+    print_usage
+    exit 1
+fi
+
+# Validate container tool value
 if [[ "$CONTAINER_TOOL" != "finch" && "$CONTAINER_TOOL" != "docker" ]]; then
     echo "❌ Invalid container tool. Must be either 'finch' or 'docker'"
     print_usage
     exit 1
 fi
+
+# Set AWS region for deployment
+export CDK_DEPLOY_REGION=$REGION
 
 # Function to check Docker daemon
 check_docker_daemon() {
@@ -320,16 +328,16 @@ deploy_stack() {
     echo "🚀 Deploying Well-Architected Analyzer stack..."
     
     # Set AWS region
-    export CDK_DEPLOY_REGION=$DEFAULT_REGION
-    echo "Using AWS Region: $DEFAULT_REGION"
+    export CDK_DEPLOY_REGION=$REGION
+    echo "Using AWS Region: $REGION"
 
     # Set container runtime for building the CDK container images
     export CDK_DOCKER=$CONTAINER_TOOL
     echo "Using container runtime: $CONTAINER_TOOL"
     
     # Bootstrap CDK if needed
-    echo "Bootstrapping CDK (if needed) in AWS account $AWS_ACCOUNT and region $DEFAULT_REGION..."
-    cdk bootstrap aws://$AWS_ACCOUNT/$DEFAULT_REGION
+    echo "Bootstrapping CDK (if needed) in AWS account $AWS_ACCOUNT and region $REGION..."
+    cdk bootstrap aws://$AWS_ACCOUNT/$REGION
     
     # Deploy stack
     echo "Deploying stack..."
@@ -344,7 +352,7 @@ deploy_stack() {
 # Main execution
 main() {
     echo "🚀 Starting Well-Architected Analyzer deployment..."
-    echo "Region: $DEFAULT_REGION"
+    echo "Region: $REGION"
     echo "Container Tool: $CONTAINER_TOOL"
     
     # Get AWS account ID

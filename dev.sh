@@ -5,35 +5,72 @@ YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
-# Default container tool
-CONTAINER_TOOL="finch"
-
 # Print script usage
 print_usage() {
-    echo "Usage: ./dev.sh [-c container_tool]"
+    echo "Usage: ./dev.sh -c container_tool [-up|-down]"
     echo ""
-    echo "Options:"
-    echo "  -c    Container tool (finch or docker, default: finch)"
-    echo "  -h    Show this help message"
+    echo "Required Options:"
+    echo "  -c     Container tool (finch or docker)"
     echo ""
-    echo "Example:"
-    echo "  ./dev.sh -c docker"
+    echo "Action Options (one required):"
+    echo "  -up    Start development environment"
+    echo "  -down  Stop development environment"
+    echo ""
+    echo "Additional Options:"
+    echo "  -h     Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  ./dev.sh -c docker -up    # Start development environment"
+    echo "  ./dev.sh -c docker -down  # Stop development environment"
 }
 
+# Initialize variables
+CONTAINER_TOOL=""
+ACTION=""
+
 # Parse command line arguments
-while getopts "c:h" flag; do
-    case "${flag}" in
-        c) CONTAINER_TOOL=${OPTARG};;
-        h) print_usage
-           exit 0;;
-        *) print_usage
-           exit 1;;
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -c)
+            CONTAINER_TOOL="$2"
+            shift 2
+            ;;
+        -up)
+            ACTION="up"
+            shift
+            ;;
+        -down)
+            ACTION="down"
+            shift
+            ;;
+        -h)
+            print_usage
+            exit 0
+            ;;
+        *)
+            print_usage
+            exit 1
+            ;;
     esac
 done
 
-# Validate container tool
+# Validate container tool is provided
+if [ -z "$CONTAINER_TOOL" ]; then
+    echo "❌ Error: Container tool (-c) is required. Must be either 'finch' or 'docker'"
+    print_usage
+    exit 1
+fi
+
+# Validate container tool value
 if [[ "$CONTAINER_TOOL" != "finch" && "$CONTAINER_TOOL" != "docker" ]]; then
     echo "❌ Invalid container tool. Must be either 'finch' or 'docker'"
+    print_usage
+    exit 1
+fi
+
+# Validate action is provided
+if [ -z "$ACTION" ]; then
+    echo "❌ Error: Action (-up or -down) is required"
     print_usage
     exit 1
 fi
@@ -192,48 +229,76 @@ setup_dependencies() {
     echo "✅ Dependencies setup completed"
 }
 
-# Main verification process
-echo "Verifying development environment..."
+# Function to start development environment
+start_dev_environment() {
+    echo "Starting development environment..."
+    
+    # Initialize error flag
+    has_error=0
+
+    # Perform all checks
+    check_command "node" || has_error=1
+    check_command "npm" || has_error=1
+    check_command "aws" || has_error=1
+    check_command "$CONTAINER_TOOL" || has_error=1
+
+    if [ "$CONTAINER_TOOL" = "docker" ]; then
+        check_docker_daemon || has_error=1
+    else
+        check_and_start_finch_vm || has_error=1
+    fi
+
+    check_node_version || has_error=1
+    check_npm || has_error=1
+    check_aws_credentials || has_error=1
+    setup_dependencies
+
+    # Exit if any checks failed
+    if [ $has_error -eq 1 ]; then
+        echo -e "\n❌ Environment verification failed. Please fix the above issues and try again."
+        exit 1
+    fi
+
+    echo -e "\n✅ Environment verification completed successfully!"
+
+    # Start the containers
+    if [ "$CONTAINER_TOOL" = "docker" ]; then
+        docker compose -f finch-compose.dev.yaml up --build
+        trap 'docker compose -f finch-compose.dev.yaml down' EXIT
+    else
+        finch compose -f finch-compose.dev.yaml up --build
+        trap 'finch compose -f finch-compose.dev.yaml down' EXIT
+    fi
+}
+
+# Function to stop development environment
+stop_dev_environment() {
+    echo "Stopping development environment..."
+    
+    if [ "$CONTAINER_TOOL" = "docker" ]; then
+        docker compose -f finch-compose.dev.yaml down
+    else
+        finch compose -f finch-compose.dev.yaml down
+    fi
+    
+    echo "✅ Development environment stopped successfully"
+}
+
+# Main execution
+echo "Development environment management"
 echo "Using container tool: $CONTAINER_TOOL"
+echo "Action: $ACTION"
 
-# Initialize error flag
-has_error=0
-
-# Perform all checks
-check_command "node" || has_error=1
-check_command "npm" || has_error=1
-check_command "aws" || has_error=1
-check_command "$CONTAINER_TOOL" || has_error=1
-
-if [ "$CONTAINER_TOOL" = "docker" ]; then
-    check_docker_daemon || has_error=1
-else
-    check_and_start_finch_vm || has_error=1
-fi
-
-check_node_version || has_error=1
-check_npm || has_error=1
-check_aws_credentials || has_error=1
-setup_dependencies
-
-# Exit if any checks failed
-if [ $has_error -eq 1 ]; then
-    echo -e "\n❌ Environment verification failed. Please fix the above issues and try again."
-    exit 1
-fi
-
-echo -e "\n✅ Environment verification completed successfully!${NC}"
-
-# Start the development environment
-echo "Starting development environment..."
-
-# Use the appropriate compose command based on the container tool
-if [ "$CONTAINER_TOOL" = "docker" ]; then
-    docker compose -f finch-compose.dev.yaml up --build
-    # Set up trap for clean shutdown
-    trap 'docker compose -f finch-compose.dev.yaml down' EXIT
-else
-    finch compose -f finch-compose.dev.yaml up --build
-    # Set up trap for clean shutdown
-    trap 'finch compose -f finch-compose.dev.yaml down' EXIT
-fi
+case $ACTION in
+    "up")
+        start_dev_environment
+        ;;
+    "down")
+        stop_dev_environment
+        ;;
+    *)
+        echo "❌ Invalid action specified"
+        print_usage
+        exit 1
+        ;;
+esac
