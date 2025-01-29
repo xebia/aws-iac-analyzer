@@ -181,16 +181,67 @@ check_npm() {
     fi
 }
 
+# Function to load environment variables
+load_env_file() {
+    if [ -f .env ]; then
+        echo "Loading environment variables from .env file..."
+        
+        # Read each line from .env file
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip comments and empty lines
+            if [[ $line =~ ^[^#].+=.+ ]]; then
+                # Export the variable
+                export "${line?}"
+            fi
+        done < .env
+    else
+        echo "❌ Error: .env file not found"
+        echo "Please create a .env file with required AWS credentials"
+        return 1
+    fi
+}
+
 # Function to check AWS credentials
 check_aws_credentials() {
-    if ! aws sts get-caller-identity &> /dev/null; then
-        echo -e "❌ Error: AWS credentials not configured"
-        echo -e "${YELLOW}Please configure your AWS credentials using 'aws configure' or set appropriate environment variables${NC}"
+    # First, load the environment variables
+    load_env_file || return 1
+
+    # Check if required variables are set
+    if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+        echo -e "❌ Error: AWS credentials not found in .env file"
+        echo -e "${YELLOW}Please ensure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are set in your .env file${NC}"
         return 1
-    else
-        echo -e "✅ AWS credentials are configured"
-        return 0
     fi
+
+    # Check if session token is provided when using access keys
+    if [ -z "$AWS_SESSION_TOKEN" ]; then
+        echo -e "⚠️ Warning: AWS_SESSION_TOKEN not defined in .env file"
+        echo -e "${YELLOW}Is recommended to use temporary credentials with a session token for enhanced security${NC}"
+        echo -e "${YELLOW}You can obtain these through AWS SSO, STS, or role assumption${NC}"
+    fi
+
+    # Verify credentials work and are temporary
+    echo "Verifying AWS credentials..."
+    if ! aws sts get-caller-identity &> /dev/null; then
+        echo -e "❌ Error: AWS credentials are invalid or expired"
+        echo -e "${YELLOW}Please ensure your credentials are valid and not expired${NC}"
+        return 1
+    fi
+
+    # Check if using temporary credentials by looking at the caller identity
+    local caller_identity
+    caller_identity=$(aws sts get-caller-identity --output json)
+    local arn
+    arn=$(echo "$caller_identity" | grep -o '"Arn": "[^"]*' | cut -d'"' -f4)
+    
+    if echo "$arn" | grep -q "assumed-role\|federated-user"; then
+        echo -e "✅ Using valid temporary AWS credentials"
+    else
+        echo -e "⚠️  Warning: It appears you're not using temporary credentials"
+        echo -e "${YELLOW}For security reasons, please use temporary credentials with a session token${NC}"
+    fi
+
+    return 0
 }
 
 # Function to setup dependencies
@@ -251,13 +302,14 @@ start_dev_environment() {
     check_node_version || has_error=1
     check_npm || has_error=1
     check_aws_credentials || has_error=1
-    setup_dependencies
-
+    
     # Exit if any checks failed
     if [ $has_error -eq 1 ]; then
         echo -e "\n❌ Environment verification failed. Please fix the above issues and try again."
         exit 1
     fi
+
+    setup_dependencies
 
     echo -e "\n✅ Environment verification completed successfully!"
 

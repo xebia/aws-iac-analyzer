@@ -390,10 +390,13 @@ In addition to the main prerequisites, ensure you have:
 AWS_REGION=your-aws-region-key
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_SESSION_TOKEN=your-session-token
 WA_DOCS_S3_BUCKET=your-s3-bucket
 KNOWLEDGE_BASE_ID=your-kb-id
 MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 ```
+
+> **Security Note**: Even not mandatory, it is encouraged the use of temporary credentials (including AWS_SESSION_TOKEN) when running the application locally. More details in [Temporary security credentials in IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html). Temporary credentials have a limited lifetime and automatically expire, providing an additional layer of security.
 
 2. Make the development script executable:
 ```bash

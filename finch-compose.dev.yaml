@@ -6,12 +6,13 @@ services:
       context: ./ecs_fargate_app
       dockerfile: finch/backend.dev.Dockerfile
     environment:
-      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_REGION=${AWS_REGION}
       - WA_DOCS_S3_BUCKET=${WA_DOCS_S3_BUCKET}
       - KNOWLEDGE_BASE_ID=${KNOWLEDGE_BASE_ID}
       - MODEL_ID=${MODEL_ID}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
       - FRONTEND_URL=http://localhost:8080
     ports:
       - "3000:3000"
