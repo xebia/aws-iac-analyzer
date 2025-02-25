@@ -360,12 +360,12 @@ In addition to the main prerequisites, ensure you have:
 
 1. Create an S3 bucket:
    ```bash
-   aws s3 mb s3://your-bucket-name --region your-aws-region
+   aws s3 mb s3://your-knowledgebase-source-bucket-name --region your-aws-region
    ```
 
 2. Upload Well-Architected documents:
    ```bash
-   aws s3 cp ecs_fargate_app/well_architected_docs/ s3://your-bucket-name/ --recursive
+   aws s3 cp ecs_fargate_app/well_architected_docs/ s3://your-knowledgebase-source-bucket-name/ --recursive
    ```
 
 3. Create a Bedrock Knowledge Base:
@@ -387,23 +387,38 @@ In addition to the main prerequisites, ensure you have:
 
 1. Create a `.env` file in the root directory with the following variables:
 ```ini
+# AWS Authentication
 AWS_REGION=your-aws-region-key
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 AWS_SESSION_TOKEN=your-session-token
-WA_DOCS_S3_BUCKET=your-s3-bucket
+
+# Well-Architected Framework Resources
+WA_DOCS_S3_BUCKET=your-knowledgebase-source-bucket-name
 KNOWLEDGE_BASE_ID=your-kb-id
 MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+
+# Storage Configuration
+STORAGE_ENABLED=true
+ANALYSIS_STORAGE_BUCKET=your-analysis-storage-bucket-name
+ANALYSIS_METADATA_TABLE=your-analysis-metadata-table-name
 ```
 
-> **Security Note**: Even not mandatory, it is encouraged the use of temporary credentials (including AWS_SESSION_TOKEN) when running the application locally. More details in [Temporary security credentials in IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html). Temporary credentials have a limited lifetime and automatically expire, providing an additional layer of security.
+> **Security Note**: It is encouraged the use of temporary credentials (including AWS_SESSION_TOKEN) when running the application locally. More details in [Temporary security credentials in IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html). Temporary credentials have a limited lifetime and automatically expire, providing an additional layer of security.
 
-2. Make the development script executable:
-```bash
+> **Storage Configuration Notes**: 
+> - If you have already deployed this CDK stack in your AWS account:
+>   1. Go to the CloudFormation console and find your stack (it starts with "WA-IaC-Analyzer-")
+>   2. In the "Outputs" tab, find:
+>      - `AnalysisStorageBucketName`: Use this value for ANALYSIS_STORAGE_BUCKET
+>      - `AnalysisMetadataTableName`: Use this value for ANALYSIS_METADATA_TABLE
+
+1. Make the development script executable:
+```bash 
 chmod +x dev.sh
 ```
 
-3. Start the development environment using either Docker or Finch:
+1. Start the development environment using either Docker or Finch:
 ```bash
 # Using Docker
 ./dev.sh -c docker -up

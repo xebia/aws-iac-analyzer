@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { analyzerApi } from '../services/api';
 import { socketService } from '../services/socket';
-import { AnalysisResult, UploadedFile, RiskSummary } from '../types';
+import { AnalysisResult, RiskSummary } from '../types';
 
 export const useAnalyzer = () => {
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[] | null>(null);
@@ -37,52 +37,63 @@ export const useAnalyzer = () => {
   }, []);
 
   const analyze = async (
-    file: UploadedFile,
+    fileId: string,
     workloadId: string | null,
-    selectedPillars: string[]
-  ) => {
+    selectedPillars: string[],
+  ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string; fileId?: string }> => {
     setIsAnalyzing(true);
     setError(null);
     setProgress(null);
     setShowPartialResultsWarning(false);
     setPartialResultsError(null);
     let tempWorkloadId: string | null = null;
-
+  
     try {
       // Create temp workload if no workloadId provided
       if (!workloadId) {
         tempWorkloadId = await analyzerApi.createWorkload(true);
         workloadId = tempWorkloadId;
       }
-
-      const { results, isCancelled, error: analysisError } = await analyzerApi.analyze(
-        file,
+  
+      const { results, isCancelled, error: analysisError, fileId: resultFileId } = await analyzerApi.analyze(
+        fileId,
         workloadId,
         selectedPillars
       );
-
+  
       setAnalysisResults(results);
-
+  
       if (isCancelled) {
         setShowAnalysisCancellationAlert(true);
       } else if (analysisError) {
-          setShowPartialResultsWarning(true);
-          setPartialResultsError(analysisError);
+        setShowPartialResultsWarning(true);
+        setPartialResultsError(analysisError);
       }
-
+  
       // Delete temp workload if it was created
       if (tempWorkloadId) {
         await analyzerApi.deleteWorkload(tempWorkloadId);
       }
+  
+      return { results, isCancelled, error: analysisError, fileId: resultFileId };
+  
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Analysis failed';
       setError(errorMessage);
-
+  
       // If we have any results, show partial results warning
       if (analysisResults && analysisResults.length > 0) {
         setShowPartialResultsWarning(true);
         setPartialResultsError('Analysis failed unexpectedly. Showing partial results.');
       }
+  
+      // Return a failure result
+      return {
+        results: analysisResults || [],
+        isCancelled: false,
+        error: errorMessage
+      };
+  
     } finally {
       setIsAnalyzing(false);
       setIsCancellingAnalysis(false);
@@ -156,13 +167,15 @@ export const useAnalyzer = () => {
     }
   };
 
-  const generateReport = async (workloadId: string) => {
+  const generateReport = async (workloadId: string, originalFileName: string = 'unknown_file') => {
     setIsGeneratingReport(true);
     try {
       const base64String = await analyzerApi.generateReport(workloadId);
       if (!base64String) {
         throw new Error('No report data received');
       }
+
+      const safeFileName = originalFileName.replace(/\./g, '_');
 
       // Convert base64 to Blob and download
       const binaryString = window.atob(base64String);
@@ -175,7 +188,7 @@ export const useAnalyzer = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `WA_Review_Report_${workloadId}_${new Date().toISOString()}.pdf`;
+      a.download = `IaCAnalyzer_Review_Report_${safeFileName}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -187,16 +200,18 @@ export const useAnalyzer = () => {
     }
   };
 
-  const downloadRecommendations = async () => {
+  const downloadRecommendations = async (originalFileName: string = 'unknown_file') => {
     if (!analysisResults) return;
 
     try {
+      const safeFileName = originalFileName.replace(/\./g, '_');
+
       const csv = await analyzerApi.generateRecommendations(analysisResults);
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `WA_Recommendations_${new Date().toISOString()}.csv`;
+      a.download = `IaCAnalyzer_Analysis_Results_${safeFileName}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -244,5 +259,7 @@ export const useAnalyzer = () => {
     showPartialResultsWarning,
     setShowPartialResultsWarning,
     partialResultsError,
+    setAnalysisResults,
+    setPartialResultsError,
   };
 };

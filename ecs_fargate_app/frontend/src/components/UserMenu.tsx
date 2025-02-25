@@ -8,6 +8,11 @@ export const useUserMenuUtilities = (): TopNavigationProps.Utility[] => {
     return [];
   }
 
+  // When using the iac-analyzer user (auth disabled), don't show any utilities
+  if (authState.userProfile.email === 'iac-analyzer') {
+    return [];
+  }
+
   return [
     {
       type: "menu-dropdown",

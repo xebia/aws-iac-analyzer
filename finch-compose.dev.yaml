@@ -14,6 +14,13 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
       - FRONTEND_URL=http://localhost:8080
+      # Auth and Storage configuration for local development
+      - AUTH_ENABLED=true
+      - AUTH_DEV_MODE=true
+      - AUTH_DEV_EMAIL=dev-user@example.com
+      - STORAGE_ENABLED=${STORAGE_ENABLED:-false}
+      - ANALYSIS_STORAGE_BUCKET=${ANALYSIS_STORAGE_BUCKET}
+      - ANALYSIS_METADATA_TABLE=${ANALYSIS_METADATA_TABLE}
     ports:
       - "3000:3000"
     volumes:
@@ -34,5 +41,8 @@ services:
       - ./ecs_fargate_app/frontend/vite.config.ts:/app/vite.config.ts
     environment:
       - VITE_API_URL=http://localhost:8080/api
+      - NODE_ENV=development
+      - AUTH_ENABLED=true
+      - AUTH_DEV_MODE=true
     depends_on:
       - backend

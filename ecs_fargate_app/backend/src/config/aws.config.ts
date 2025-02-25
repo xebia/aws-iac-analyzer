@@ -4,6 +4,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 import { WellArchitectedClient } from '@aws-sdk/client-wellarchitected';
 import { BedrockAgentRuntimeClient } from '@aws-sdk/client-bedrock-agent-runtime';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
 @Injectable()
 export class AwsConfigService {
@@ -23,6 +24,10 @@ export class AwsConfigService {
 
   createBedrockAgentClient(): BedrockAgentRuntimeClient {
     return new BedrockAgentRuntimeClient(this.getAwsConfig());
+  }
+
+  createDynamoDBClient(): DynamoDBClient {
+    return new DynamoDBClient(this.getAwsConfig());
   }
 
   private getAwsConfig() {

@@ -4,50 +4,100 @@ import {
   Body,
   HttpException,
   HttpStatus,
-  Logger
+  Logger,
+  Headers,
 } from '@nestjs/common';
 import { AnalyzerService } from './analyzer.service';
+import { StorageService } from '../storage/storage.service';
 import { AnalyzeRequestDto, IaCTemplateType } from '../../shared/dto/analysis.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('analyzer')
 export class AnalyzerController {
   private readonly logger = new Logger(AnalyzerController.name);
 
-  constructor(private readonly analyzerService: AnalyzerService) { }
+  constructor(
+    private readonly analyzerService: AnalyzerService,
+    private readonly storageService: StorageService,
+    private readonly configService: ConfigService,
+  ) { }
+
+  private getUserEmail(userDataHeader: string): string | null {
+    // Check if authentication is enabled
+    const isAuthEnabled = this.configService.get<boolean>('auth.enabled', false);
+    
+    if (!isAuthEnabled) {
+      // Return default "iac-analyzer" email when auth is disabled
+      return 'iac-analyzer';
+    }
+
+    // Check if in development mode
+    const isDevMode = this.configService.get<boolean>('auth.devMode', false);
+    const devEmail = this.configService.get<string>('auth.devEmail');
+
+    if (isDevMode && devEmail) {
+      this.logger.debug('Using development mode email:', devEmail);
+      return devEmail;
+    }
+
+    // Production mode - parse from header
+    if (!userDataHeader) {
+      return null;
+    }
+
+    try {
+      const payload = JSON.parse(
+        Buffer.from(userDataHeader.split('.')[1], 'base64').toString()
+      );
+      return payload.email || null;
+    } catch (error) {
+      this.logger.error('Error parsing user data header:', error);
+      return null;
+    }
+  }
 
   @Post('analyze')
-  async analyze(@Body() analyzeRequest: AnalyzeRequestDto) {
+  async analyze(
+    @Body() analyzeRequest: AnalyzeRequestDto,
+    @Headers('x-amzn-oidc-data') userDataHeader: string,
+  ) {
     try {
+      const email = this.getUserEmail(userDataHeader);
+      const userId = email ? this.storageService.createUserIdHash(email) : null;
+
       return await this.analyzerService.analyze(
-        analyzeRequest.fileContent,
+        analyzeRequest.fileId,
         analyzeRequest.workloadId,
         analyzeRequest.selectedPillars,
-        analyzeRequest.fileType
+        userId,
       );
     } catch (error) {
       this.logger.error('Analysis failed:', error);
       throw new HttpException(
         `Failed to analyze template: ${error.message || error}`,
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   @Post('generate-iac')
-  async generateIacDocument(@Body() body: {
-    fileContent: string;
-    fileName: string;
-    fileType: string;
-    recommendations: any[];
-    templateType: IaCTemplateType;
-  }) {
+  async generateIacDocument(
+    @Body() body: {
+      fileId: string;
+      recommendations: any[];
+      templateType: IaCTemplateType;
+    },
+    @Headers('x-amzn-oidc-data') userDataHeader: string,
+  ) {
     try {
+      const email = this.getUserEmail(userDataHeader);
+      const userId = email ? this.storageService.createUserIdHash(email) : null;
+
       const result = await this.analyzerService.generateIacDocument(
-        body.fileContent,
-        body.fileName,
-        body.fileType,
+        body.fileId,
         body.recommendations,
-        body.templateType
+        body.templateType,
+        userId,
       );
       return result;
     } catch (error) {
@@ -55,7 +105,8 @@ export class AnalyzerController {
       return {
         content: '',
         isCancelled: false,
-        error: error instanceof Error ? error.message : 'Failed to generate IaC document'
+        error:
+          error instanceof Error ? error.message : 'Failed to generate IaC document',
       };
     }
   }
@@ -63,15 +114,18 @@ export class AnalyzerController {
   @Post('get-more-details')
   async getMoreDetails(@Body() body: {
     selectedItems: any[];
-    fileContent: string;
-    fileType: string;
+    fileId: string;
     templateType?: IaCTemplateType;
-  }) {
+  },
+  @Headers('x-amzn-oidc-data') userDataHeader: string,) {
     try {
+      const email = this.getUserEmail(userDataHeader);
+      const userId = email ? this.storageService.createUserIdHash(email) : null;
+
       const result = await this.analyzerService.getMoreDetails(
         body.selectedItems,
-        body.fileContent,
-        body.fileType,
+        userId,
+        body.fileId,
         body.templateType
       );
       return result;

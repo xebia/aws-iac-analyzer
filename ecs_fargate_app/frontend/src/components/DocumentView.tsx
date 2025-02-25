@@ -29,19 +29,10 @@ export const DocumentView: React.FC<DocumentViewProps> = ({
     }
 
     const handleDownload = () => {
-        const now = new Date();
-        const timestamp = now.toLocaleString('en-AU', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-            timeZone: 'UTC'
-        }).replace(/[/,:]/g, '').replace(/\s/g, '_');
-
-        const newFileName = `IaCAnalyzer_${timestamp}_UTC_${fileName.replace(/\./g, '_')}${getTemplateType()}`;
+        const safeFileName = fileName.replace(/\./g, '_');
+        
+        const newFileName = `IaCAnalyzer_Generated_IaC_Doc_${safeFileName}${getTemplateType()}`;
+        
         const blob = new Blob([content], { type: 'text/plain' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
