@@ -19,24 +19,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             try {
                 const response = await fetch('/api/auth/config');
                 if (response.ok) {
-                    const config = await response.json();
+                    const userResponse = await fetch('/api/auth/user-info');
 
-                    if (config.enabled) {
-                        const userResponse = await fetch('/api/auth/user-info');
-                        if (userResponse.ok) {
-                            const userData = await userResponse.json();
-                            setAuthState({
-                                isAuthenticated: true,
-                                userProfile: {
-                                    username: userData.username,
-                                    email: userData.email
-                                }
-                            });
-                        }
+                    if (userResponse.ok) {
+                        const userData = await userResponse.json();
+                        setAuthState({
+                            // When auth is disabled, "iac-analyzer" common profile
+                            isAuthenticated: true,
+                            userProfile: {
+                                username: userData.username,
+                                email: userData.email
+                            }
+                        });
                     }
                 }
             } catch (error) {
                 console.error('Error fetching auth configuration:', error);
+                // For development, if there's an error but we're in local mode,
+                // we can still set a default authenticated state
+                if (process.env.NODE_ENV === 'development') {
+                    setAuthState({
+                        isAuthenticated: true,
+                        userProfile: {
+                            username: 'Dev User',
+                            email: 'dev-user@example.com'
+                        }
+                    });
+                }
             }
         };
 
@@ -53,7 +62,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             if (response.ok) {
                 const { redirectUrl } = await response.json();
-                // Redirect to Cognito logout URL
+                // In development or when auth is disabled, reset the auth state
+                if (process.env.NODE_ENV === 'development' || !redirectUrl) {
+                    setAuthState({
+                        isAuthenticated: false,
+                        userProfile: null
+                    });
+                    return;
+                }
+                // In production, redirect to Cognito logout URL
                 window.location.href = redirectUrl;
             } else {
                 console.error('Logout failed');

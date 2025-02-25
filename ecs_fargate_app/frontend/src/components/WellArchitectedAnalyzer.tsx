@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DocumentView } from './DocumentView';
 import { SpaceBetween, Container, Button, StatusIndicator, ProgressBar, Tabs, Alert, ExpandableSection } from '@cloudscape-design/components';
 import { FileUpload } from './FileUpload';
@@ -7,8 +7,9 @@ import { PillarSelector } from './PillarSelector';
 import { AnalysisResults } from './AnalysisResults';
 import { RiskSummary } from './RiskSummary';
 import { useAnalyzer } from '../hooks/useAnalyzer';
-import { UploadedFile, WellArchitectedPillar, IaCTemplateType, UpdatedDocument } from '../types';
+import { UploadedFile, WellArchitectedPillar, IaCTemplateType, UpdatedDocument, WorkItem, WorkItemResponse, WorkItemContent } from '../types';
 import { analyzerApi } from '../services/api';
+import { storageApi } from '../services/storage';
 import { socketService } from '../services/socket';
 import { IaCTemplateSelector } from './IaCTemplateSelector';
 
@@ -26,7 +27,11 @@ interface ImplementationProgress {
   progress: number;
 }
 
-export const WellArchitectedAnalyzer: React.FC = () => {
+interface Props {
+  onWorkItemsRefreshNeeded?: () => void;
+}
+
+export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNeeded }) => {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [updatedDocument, setUpdatedDocument] = useState<UpdatedDocument | null>(null);
   const [workloadId, setWorkloadId] = useState<string | null>(null);
@@ -46,16 +51,8 @@ export const WellArchitectedAnalyzer: React.FC = () => {
   const [documentViewTabTitle, setDocumentViewTabTitle] = useState('IaC Document');
   const [showGenerationErrorWarning, setShowGenerationErrorWarning] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const cleanup = socketService.onImplementationProgress((progressData: ImplementationProgress) => {
-      setImplementationProgress(progressData);
-    });
-
-    return () => {
-      cleanup();
-    };
-  }, []);
+  const [activeWorkItem, setActiveWorkItem] = useState<WorkItem | null>(null);
+  const [currentWorkItemName, setCurrentWorkItemName] = useState<string>('');
 
   const {
     analyze,
@@ -83,11 +80,72 @@ export const WellArchitectedAnalyzer: React.FC = () => {
     showPartialResultsWarning,
     setShowPartialResultsWarning,
     partialResultsError,
+    setAnalysisResults,
+    setPartialResultsError,
   } = useAnalyzer();
 
+  useEffect(() => {
+    const cleanup = socketService.onImplementationProgress((progressData: ImplementationProgress) => {
+      setImplementationProgress(progressData);
+    });
+
+    return () => {
+      cleanup();
+    };
+  }, []);
+
   const handleAnalyze = async () => {
-    if (!uploadedFile) return;
-    await analyze(uploadedFile, workloadId, selectedPillars);
+    if (!uploadedFile || !activeWorkItem) return;
+
+    try {
+      // Refresh side navigation when analysis starts
+      onWorkItemsRefreshNeeded?.();
+
+      const result = await analyze(
+        activeWorkItem.fileId,
+        workloadId,
+        selectedPillars,
+      );
+
+      // Update activeWorkItem with fileId from analysis result, even for partial results
+      if (result.fileId && activeWorkItem) {
+        // If we have an existing activeWorkItem, update it
+        setActiveWorkItem({
+          ...activeWorkItem,
+          fileId: result.fileId,
+        });
+        setCurrentWorkItemName(`${activeWorkItem.fileName}`);
+        if (!activeWorkItem?.fileType.startsWith('image/')) {
+          setUpdatedDocument(null);
+        }
+      } else if (result.fileId) {
+        // If we don't have an activeWorkItem but have a fileId, create a new minimal WorkItem
+        setActiveWorkItem({
+          userId: '', // This will be set by the backend
+          fileId: result.fileId,
+          fileName: uploadedFile.name,
+          fileType: uploadedFile.type,
+          uploadDate: new Date().toISOString(),
+          analysisStatus: 'IN_PROGRESS',
+          analysisProgress: 0,
+          iacGenerationStatus: 'NOT_STARTED',
+          iacGenerationProgress: 0,
+          s3Prefix: `${result.fileId}`, // The actual prefix will be managed by backend
+          lastModified: new Date().toISOString()
+        });
+        setCurrentWorkItemName(`${activeWorkItem.fileName}`);
+        if (!activeWorkItem?.fileType.startsWith('image/')) {
+          setUpdatedDocument(null);
+        }
+      }
+    } catch (err) {
+      // Handle any errors that might occur during analysis
+      console.error("Analysis failed:", err);
+      setError(err instanceof Error ? err.message : 'Analysis failed unexpectedly. Please try again.');
+    } finally {
+      // Always refresh side navigation when analysis completes or fails
+      onWorkItemsRefreshNeeded?.();
+    }
   };
 
   const handleUpdate = async () => {
@@ -101,7 +159,7 @@ export const WellArchitectedAnalyzer: React.FC = () => {
     return currentType || 'undefined';
   };
 
-  const handleFileUploaded = (file: UploadedFile) => {
+  const handleFileUploaded = (file: UploadedFile, fileId: string) => {
     const processedFile = {
       ...file,
       type: getFileType(file.name, file.type)
@@ -109,12 +167,28 @@ export const WellArchitectedAnalyzer: React.FC = () => {
 
     setUploadedFile(processedFile);
     setIsImageFile(processedFile.type.startsWith('image/'));
+    setActiveWorkItem(null);
+
+    // Store the fileId for later use
+    setActiveWorkItem({
+      userId: '', // This will be set by the backend
+      fileId: fileId,
+      fileName: file.name,
+      fileType: processedFile.type,
+      uploadDate: new Date().toISOString(),
+      analysisStatus: 'NOT_STARTED',
+      analysisProgress: 0,
+      iacGenerationStatus: 'NOT_STARTED',
+      iacGenerationProgress: 0,
+      s3Prefix: `${fileId}`,
+      lastModified: new Date().toISOString()
+    });
   };
 
   const handleGenerateReport = async () => {
     const activeWorkloadId = workloadId || createdWorkloadId;
     if (!activeWorkloadId) return;
-    await generateReport(activeWorkloadId);
+    await generateReport(activeWorkloadId, uploadedFile?.name || 'unknown_file');
   };
 
   const handleRefresh = () => {
@@ -124,22 +198,27 @@ export const WellArchitectedAnalyzer: React.FC = () => {
   };
 
   const handleGenerateIacDocument = async () => {
-    if (!uploadedFile || !analysisResults) return;
+    if (!uploadedFile || !analysisResults || !activeWorkItem) return;
 
     try {
+      // Refresh side navigation when IaC generation starts
+      onWorkItemsRefreshNeeded?.();
+
       setIsImplementing(true);
       setShowGenerationErrorWarning(false);
       setGenerationError(null);
 
       const result = await analyzerApi.generateIacDocument(
-        uploadedFile.content,
-        uploadedFile.name,
-        uploadedFile.type,
+        activeWorkItem.fileId,
         analysisResults,
         selectedIaCType
       );
 
+      // Refresh side navigation when IaC generation completes (success, failure, or cancelled)
+      onWorkItemsRefreshNeeded?.();
+
       if (result.error) {
+        onWorkItemsRefreshNeeded?.();
         setShowGenerationErrorWarning(true);
         setGenerationError(result.error);
       }
@@ -157,18 +236,18 @@ export const WellArchitectedAnalyzer: React.FC = () => {
         }
       }
     } catch (error) {
-        setShowGenerationErrorWarning(true);
-        setGenerationError('An unexpected error occurred during generation.');
+      setShowGenerationErrorWarning(true);
+      setGenerationError('An unexpected error occurred during generation.');
     } finally {
-        setIsImplementing(false);
-        setImplementationProgress(null);
+      setIsImplementing(false);
+      setImplementationProgress(null);
     }
   };
 
   const handleDownloadRecommendations = async () => {
     try {
       setIsDownloading(true);
-      await downloadRecommendations();
+      await downloadRecommendations(uploadedFile?.name || 'unknown_file');
     } finally {
       setIsDownloading(false);
     }
@@ -179,16 +258,156 @@ export const WellArchitectedAnalyzer: React.FC = () => {
     '.png', '.jpg', '.jpeg'           // Image files
   ];
 
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const pad = (num: number) => String(num).padStart(2, '0');
+
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hour = pad(date.getHours());
+    const minute = pad(date.getMinutes());
+    const second = pad(date.getSeconds());
+
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  };
+
+  const handleWorkItemSelect = useCallback(async (workItem: WorkItem) => {
+    try {
+      setActiveWorkItem(workItem);
+
+      setCurrentWorkItemName(`[${formatDateTime(workItem.lastModified)}] ${workItem.fileName}`);
+
+      // Get the complete work item with all results
+      const result = await storageApi.getWorkItem(workItem.fileId) as WorkItemResponse;
+
+      // Only proceed if we got results
+      if (!result) {
+        setError('Failed to load work item results');
+        return;
+      }
+
+      if (workItem?.fileType.startsWith('image/')) {
+        setIsImageFile(true);
+      }
+
+      if (workItem?.iacGenerationStatus === 'NOT_STARTED' || workItem?.iacGenerationStatus === 'FAILED') {
+        setUpdatedDocument(null);
+        // If currently on the IaC Document tab, switch to analysis tab
+        if (activeTabId === 'diff') {
+          setActiveTabId('analysis');
+        }
+      }
+
+      // Set the uploaded file info
+      if (result.content) {
+        let fileContent: string;
+
+        // Handle different content types
+        if (typeof result.content === 'string') {
+          fileContent = result.content;
+        } else {
+          const contentObj = result.content as WorkItemContent;
+          if (workItem.fileType.startsWith('image/')) {
+            // For images, ensure proper base64 format
+            fileContent = contentObj.data.startsWith('data:')
+              ? contentObj.data
+              : `data:${workItem.fileType};base64,${contentObj.data}`;
+          } else {
+            // For text content
+            fileContent = contentObj.data;
+          }
+        }
+
+        setUploadedFile({
+          name: workItem.fileName,
+          content: fileContent,
+          type: workItem.fileType,
+          size: new Blob([fileContent]).size,
+        });
+      }
+
+      // Load analysis results if completed
+      if ((workItem.analysisStatus === 'COMPLETED' || workItem.analysisStatus === 'PARTIAL') && result.analysisResults) {
+        setAnalysisResults(result.analysisResults);
+        setActiveTabId('analysis');
+      }
+
+      // Load IaC document if completed
+      if ((workItem.iacGenerationStatus === 'COMPLETED' || workItem.iacGenerationStatus === 'PARTIAL') && result.iacDocument) {
+        setUpdatedDocument({
+          content: result.iacDocument,
+          name: workItem.fileName,
+          templateType: selectedIaCType,
+        });
+        if (!result.analysisResults) {
+          setActiveTabId('diff');
+        }
+      }
+
+      // Show any errors if either process failed
+      if (workItem.analysisError || workItem.iacGenerationError) {
+        setShowPartialResultsWarning(true);
+        setPartialResultsError(
+          `Previous errors encountered: ${[
+            workItem.analysisError,
+            workItem.iacGenerationError,
+          ]
+            .filter(Boolean)
+            .join(', ')}`
+        );
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to load work item');
+    }
+  }, [setActiveWorkItem, setError, setUploadedFile, setAnalysisResults, setActiveTabId, setUpdatedDocument, selectedIaCType]);
+
+  // Effect to listen for workItemSelected events
+  useEffect(() => {
+    const handleWorkItemSelected = async (event: Event) => {
+      const customEvent = event as CustomEvent<{ workItem: WorkItem }>;
+      try {
+        await handleWorkItemSelect(customEvent.detail.workItem);
+
+        // Dispatch loadComplete event
+        const element = document.querySelector('[data-testid="well-architected-analyzer"]');
+        if (element) {
+          element.dispatchEvent(new CustomEvent('loadComplete', { bubbles: true }));
+        }
+      } catch (error) {
+        console.error('Error handling work item selection:', error);
+        // Still dispatch loadComplete even if there's an error
+        const element = document.querySelector('[data-testid="well-architected-analyzer"]');
+        if (element) {
+          element.dispatchEvent(new CustomEvent('loadComplete', { bubbles: true }));
+        }
+      }
+    };
+
+    const element = document.querySelector('[data-testid="well-architected-analyzer"]');
+    if (element) {
+      element.addEventListener('workItemSelected', handleWorkItemSelected);
+    }
+
+    return () => {
+      if (element) {
+        element.removeEventListener('workItemSelected', handleWorkItemSelected);
+      }
+    };
+  }, [handleWorkItemSelect]);
+
   return (
     <SpaceBetween size="l">
-      <Container>
+      <Container key="main-upload-container">
         <SpaceBetween size="l">
           <FileUpload
+            key="file-upload"
             onFileUploaded={handleFileUploaded}
             acceptedFileTypes={acceptedFileTypes}
           />
 
           <PillarSelector
+            key="pillar-selector"
             pillars={DEFAULT_PILLARS}
             selectedPillars={selectedPillars}
             onChange={setSelectedPillars}
@@ -196,17 +415,20 @@ export const WellArchitectedAnalyzer: React.FC = () => {
           />
 
           <ExpandableSection
+            key="optional-settings"
             variant="inline"
             headerText="Optional settings"
           >
             <SpaceBetween size="l">
               <WorkloadIdInput
+                key="workload-id-input"
                 value={workloadId || ''}
                 onChange={(value) => setWorkloadId(value || null)}
                 optional={true}
                 disabled={!!createdWorkloadId}
               />
               <IaCTemplateSelector
+                key="iac-template-selector"
                 value={selectedIaCType}
                 onChange={setSelectedIaCType}
                 disabled={isAnalyzing || isUpdating || !isImageFile}
@@ -218,6 +440,7 @@ export const WellArchitectedAnalyzer: React.FC = () => {
 
           {error && (
             <Alert
+              key="error-alert"
               type="error"
               dismissible
               onDismiss={() => setError(null)}
@@ -227,18 +450,20 @@ export const WellArchitectedAnalyzer: React.FC = () => {
             </Alert>
           )}
 
-          <SpaceBetween size="xs" direction="horizontal">
+          <SpaceBetween key="action-buttons" size="xs" direction="horizontal">
             <Button
+              key="analyze-button"
               variant="primary"
               onClick={handleAnalyze}
               loading={isAnalyzing}
               disabled={!uploadedFile || selectedPillars.length === 0}
               iconName="gen-ai"
             >
-              Review Uploaded Document
+              Start Review
             </Button>
             {isAnalyzing && (
               <Button
+                key="cancel-button"
                 onClick={cancelAnalysis}
                 iconName="close"
                 disabled={isCancellingAnalysis || !progress}
@@ -252,13 +477,14 @@ export const WellArchitectedAnalyzer: React.FC = () => {
       </Container>
 
       {isAnalyzing && progress && (
-        <Container>
+        <Container key="main-analysis-progress">
           <SpaceBetween size="m">
-            <StatusIndicator type="in-progress">
+            <StatusIndicator key="analysis-progress-status" type="in-progress">
               [{progress.processedQuestions}/{progress.totalQuestions}] Analyzing uploaded file according to:
               '{progress.currentPillar} - {progress.currentQuestion}'
             </StatusIndicator>
             <ProgressBar
+              key="analysis-progress-bar"
               value={Math.round((progress.processedQuestions / progress.totalQuestions) * 100)}
               description="Analysis progress"
             />
@@ -267,12 +493,13 @@ export const WellArchitectedAnalyzer: React.FC = () => {
       )}
 
       {isImplementing && implementationProgress && (
-        <Container>
+        <Container key="main-implementation-progress">
           <SpaceBetween size="m">
-            <StatusIndicator type="in-progress">
+            <StatusIndicator key="implementation-progress-status" type="in-progress">
               {implementationProgress.status}
             </StatusIndicator>
             <ProgressBar
+              key="implementation-progress-bar"
               value={implementationProgress.progress}
               description="IaC document generation progress"
             />
@@ -281,12 +508,13 @@ export const WellArchitectedAnalyzer: React.FC = () => {
       )}
 
       {isLoadingDetails && implementationProgress && (
-        <Container>
+        <Container key="main-loading-progress">
           <SpaceBetween size="m">
-            <StatusIndicator type="in-progress">
+            <StatusIndicator key="loading-progress-status" type="in-progress">
               {implementationProgress.status}
             </StatusIndicator>
             <ProgressBar
+              key="loading-progress-bar"
               value={implementationProgress.progress}
               description="Analysis progress"
             />
@@ -296,6 +524,7 @@ export const WellArchitectedAnalyzer: React.FC = () => {
 
       {showAnalysisCancellationAlert && (
         <Alert
+          key="main-analysis-cancellation-alert"
           onDismiss={() => setShowAnalysisCancellationAlert(false)}
           dismissible
           type="warning"
@@ -309,6 +538,7 @@ export const WellArchitectedAnalyzer: React.FC = () => {
 
       {showCancellationAlert && (
         <Alert
+          key="main-cancellation-alert"
           onDismiss={() => setShowCancellationAlert(false)}
           dismissible
           type="warning"
@@ -322,6 +552,7 @@ export const WellArchitectedAnalyzer: React.FC = () => {
 
       {showPartialResultsWarning && (
         <Alert
+          key="main-partial-results-warning"
           onDismiss={() => setShowPartialResultsWarning(false)}
           dismissible
           type="warning"
@@ -335,6 +566,7 @@ export const WellArchitectedAnalyzer: React.FC = () => {
 
       {showGenerationErrorWarning && (
         <Alert
+          key="main-generation-error-warning"
           onDismiss={() => setShowGenerationErrorWarning(false)}
           dismissible
           type="warning"
@@ -345,8 +577,19 @@ export const WellArchitectedAnalyzer: React.FC = () => {
         </Alert>
       )}
 
+      {currentWorkItemName && (
+        <Alert
+          key="main-current-work-item-alert"
+          type="info"
+          statusIconAriaLabel="Info"
+        >
+          Current work item: "{currentWorkItemName}"
+        </Alert>
+      )}
+
       {analysisResults && (
         <Tabs
+          key="main-results-tabs"
           activeTabId={activeTabId}
           onChange={({ detail }) => {
             setActiveTabId(detail.activeTabId);
@@ -358,20 +601,24 @@ export const WellArchitectedAnalyzer: React.FC = () => {
               id: 'analysis',
               label: 'Analysis Results',
               content: (
-                <AnalysisResults
-                  results={analysisResults}
-                  isAnalyzing={isAnalyzing}
-                  onDownloadRecommendations={handleDownloadRecommendations}
-                  onGenerateIacDocument={handleGenerateIacDocument}
-                  isDownloading={isDownloading}
-                  isImplementing={isImplementing}
-                  uploadedFileContent={uploadedFile?.content || ''}
-                  isLoadingDetails={isLoadingDetails}
-                  setIsLoadingDetails={setIsLoadingDetails}
-                  uploadedFileType={uploadedFile?.type || ''}
-                  selectedIaCType={selectedIaCType}
-                  setError={setError}
-                />
+                <div key="analysis-tab-content">
+                  <AnalysisResults
+                    key="analysis-results"
+                    results={analysisResults}
+                    isAnalyzing={isAnalyzing}
+                    onDownloadRecommendations={handleDownloadRecommendations}
+                    onGenerateIacDocument={handleGenerateIacDocument}
+                    isDownloading={isDownloading}
+                    isImplementing={isImplementing}
+                    isLoadingDetails={isLoadingDetails}
+                    setIsLoadingDetails={setIsLoadingDetails}
+                    uploadedFileType={uploadedFile?.type || ''}
+                    selectedIaCType={selectedIaCType}
+                    setError={setError}
+                    fileId={activeWorkItem?.fileId || ''}
+                    fileName={uploadedFile?.name || 'unknown_file'}
+                  />
+                </div>
               )
             },
             {
@@ -379,8 +626,9 @@ export const WellArchitectedAnalyzer: React.FC = () => {
               label: 'Well-Architected Tool',
               disabled: isLoadingDetails || isImplementing,
               content: (
-                <div>
+                <div key="wat-content">
                   <RiskSummary
+                    key="risk-summary"
                     summary={riskSummary}
                     onUpdate={handleUpdate}
                     onGenerateReport={handleGenerateReport}
@@ -401,9 +649,10 @@ export const WellArchitectedAnalyzer: React.FC = () => {
               label: documentViewTabTitle,
               disabled: isLoadingDetails || isImplementing || !updatedDocument,
               content: (
-                <div>
+                <div key="diff-content">
                   {updatedDocument && (
                     <DocumentView
+                      key="document-view"
                       content={updatedDocument.content}
                       fileName={updatedDocument.name}
                       selectedIaCType={selectedIaCType}

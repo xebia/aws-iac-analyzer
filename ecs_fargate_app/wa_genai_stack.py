@@ -1,6 +1,7 @@
 """CDK stack for hosting react app in ECS and Fargate"""
 
 import configparser
+import hashlib
 import platform
 import uuid
 
@@ -9,6 +10,7 @@ import aws_cdk.aws_servicediscovery as servicediscovery
 from aws_cdk import Duration, RemovalPolicy, Stack
 from aws_cdk import aws_certificatemanager as aws_certificatemanager
 from aws_cdk import aws_cognito as aws_cognito
+from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
@@ -227,6 +229,50 @@ class WAGenAIStack(Stack):
         )
 
         KB_ID = kb.knowledge_base_id
+
+        # Create S3 bucket and DynamoDB table for storage layer
+        # Create S3 bucket for storing analysis results
+        analysis_storage_bucket = s3.Bucket(
+            self,
+            "AnalysisStorageBucket",
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True,
+            enforce_ssl=True,
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT],
+                    allowed_origins=["*"],
+                    allowed_headers=["*"],
+                )
+            ],
+        )
+
+        # Create DynamoDB table for metadata
+        analysis_metadata_table = dynamodb.Table(
+            self,
+            "AnalysisMetadataTable",
+            partition_key=dynamodb.Attribute(
+                name="userId", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="fileId", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            point_in_time_recovery=True,
+        )
+
+        # Add GSI for status queries
+        analysis_metadata_table.add_global_secondary_index(
+            index_name="StatusIndex",
+            partition_key=dynamodb.Attribute(
+                name="userId", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="analysisStatus", type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
 
         # Create S3 bucket where well architected reference docs are stored
         wafrReferenceDocsBucket = s3.Bucket(
@@ -486,6 +532,38 @@ class WAGenAIStack(Stack):
             iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockFullAccess")
         )
 
+        # Adding DDB and S3 data store bucket permission for app_execute_role
+        app_execute_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObject",
+                    "s3:ListBucket",
+                ],
+                resources=[
+                    analysis_storage_bucket.bucket_arn,
+                    f"{analysis_storage_bucket.bucket_arn}/*",
+                ],
+            )
+        )
+
+        app_execute_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "dynamodb:PutItem",
+                    "dynamodb:GetItem",
+                    "dynamodb:DeleteItem",
+                    "dynamodb:Query",
+                    "dynamodb:UpdateItem",
+                ],
+                resources=[
+                    analysis_metadata_table.table_arn,
+                    f"{analysis_metadata_table.table_arn}/index/*",
+                ],
+            )
+        )
+
         # Create VPC to host the ECS cluster
         vpc = ec2.Vpc(
             self,
@@ -556,6 +634,7 @@ class WAGenAIStack(Stack):
                 security_groups=[frontend_security_group],
                 certificate=certificate,
                 redirect_http=True,
+                ssl_policy=elbv2.SslPolicy.RECOMMENDED_TLS,
             )
 
             # Store reference to frontend target group
@@ -705,6 +784,16 @@ class WAGenAIStack(Stack):
 
         backend_container.add_port_mappings(ecs.PortMapping(container_port=3000))
 
+        # Environment variables for the backend service when auth is enabled
+        backend_container.add_environment("STORAGE_ENABLED", "true")
+
+        backend_container.add_environment(
+            "ANALYSIS_STORAGE_BUCKET", analysis_storage_bucket.bucket_name
+        )
+        backend_container.add_environment(
+            "ANALYSIS_METADATA_TABLE", analysis_metadata_table.table_name
+        )
+
         # Create the backend service
         backend_service = ecs.FargateService(
             self,
@@ -780,6 +869,21 @@ class WAGenAIStack(Stack):
                     ),
                     description="Cognito domain for authentication",
                 )
+
+        # Outputs for the storage resources
+        cdk.CfnOutput(
+            self,
+            "AnalysisStorageBucketName",
+            value=analysis_storage_bucket.bucket_name,
+            description="S3 bucket for storing analysis results",
+        )
+
+        cdk.CfnOutput(
+            self,
+            "AnalysisMetadataTableName",
+            value=analysis_metadata_table.table_name,
+            description="DynamoDB table for analysis metadata",
+        )
 
         # Node dependencies
         kbDataSource.node.add_dependency(wafrReferenceDocsBucket)

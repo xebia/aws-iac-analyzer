@@ -11,15 +11,7 @@ export class AnalyzeRequestDto {
 
   @IsString()
   @IsNotEmpty()
-  fileContent: string;
-
-  @IsString()
-  @IsNotEmpty()
-  fileName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  fileType: string;
+  fileId: string;
 
   templateType?: IaCTemplateType;
 }

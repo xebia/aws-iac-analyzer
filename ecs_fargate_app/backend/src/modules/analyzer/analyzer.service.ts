@@ -9,6 +9,7 @@ import { AnalyzerGateway } from './analyzer.gateway';
 import { IaCTemplateType } from '../../shared/dto/analysis.dto';
 import { Subject } from 'rxjs';
 import { AnalysisResult } from '../../shared/interfaces/analysis.interface';
+import { StorageService } from '../storage/storage.service';
 
 interface QuestionGroup {
     pillar: string;
@@ -62,12 +63,62 @@ export class AnalyzerService {
     private cachedBestPractices: WellArchitectedBestPractice[] | null = null;
     private cancelGeneration$ = new Subject<void>();
     private cancelAnalysis$ = new Subject<void>();
+    private readonly storageEnabled: boolean;
 
     constructor(
         private readonly awsConfig: AwsConfigService,
         private readonly configService: ConfigService,
         private readonly analyzerGateway: AnalyzerGateway,
-    ) { }
+        private readonly storageService: StorageService,
+    ) {
+        this.storageEnabled = this.configService.get<boolean>('storage.enabled', false);
+    }
+
+    private async getFileContent(userId: string, fileId: string): Promise<{ content: string; type: string }> {
+        try {
+            const workItem = await this.storageService.getWorkItem(userId, fileId);
+            const { data, contentType: type } = await this.storageService.getOriginalContent(
+                userId,
+                fileId,
+                false
+            );
+            // Convert Buffer to string or handle base64 data
+            let content: string;
+            if (Buffer.isBuffer(data)) {
+                // If it's an image, convert to base64
+                if (type.startsWith('image/')) {
+                    content = `data:${type};base64,${data.toString('base64')}`;
+                } else {
+                    // For text files (IaC templates), convert to UTF-8 string
+                    content = data.toString('utf-8');
+                }
+            } else {
+                content = data;
+            }
+
+            return { content, type };
+        } catch (error) {
+            this.logger.error('Error fetching file content:', error);
+            throw new Error('Failed to fetch file content from storage');
+        }
+    }
+
+    private ensureBase64Format(fileContent: string, fileType: string): string {
+        // If the content already starts with 'data:', it's already in the correct format
+        if (fileContent.startsWith('data:')) {
+            return fileContent;
+        }
+
+        // Convert Buffer/binary string to base64 and add data URI prefix
+        try {
+            // If it's a binary string, convert to base64
+            const base64Content = Buffer.from(fileContent, 'binary').toString('base64');
+            return `data:${fileType};base64,${base64Content}`;
+        } catch (error) {
+            this.logger.error('Error converting file content to base64:', error);
+            throw new Error('Failed to process file content');
+        }
+    }
 
     private isImageFile(fileType: string | undefined): boolean {
         if (!fileType) return false;
@@ -78,9 +129,32 @@ export class AnalyzerService {
         this.cancelAnalysis$.next();
     }
 
-    async analyze(fileContent: string, workloadId: string, selectedPillars: string[], fileType: string): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string  }> {
+    async analyze(
+        fileId: string,
+        workloadId: string,
+        selectedPillars: string[],
+        userId?: string,
+    ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string; fileId?: string }> {
         const results: AnalysisResult[] = [];
+        let workItem;
+
         try {
+            if (!userId) {
+                throw new Error('User ID is required for analysis');
+            }
+
+            // Get file content from storage
+            const { content: fileContent, type: fileType } = await this.getFileContent(userId, fileId);
+
+            // Get existing work item
+            workItem = await this.storageService.getWorkItem(userId, fileId);
+
+            await this.storageService.updateWorkItem(userId, fileId, {
+                analysisStatus: 'IN_PROGRESS',
+                analysisProgress: 0,
+                lastModified: new Date().toISOString(),
+            });
+
             // Load all best practices once
             await this.loadBestPractices(workloadId);
 
@@ -115,17 +189,34 @@ export class AnalyzerService {
                         // Check for cancellation
                         const isCancelled = await Promise.race([
                             cancelPromise,
-                            Promise.resolve(false)
+                            Promise.resolve(false),
                         ]);
 
                         if (isCancelled) {
+                            if (workItem && results.length > 0) {
+                                // Store partial results before marking as cancelled
+                                await this.storageService.storeAnalysisResults(
+                                    userId,
+                                    workItem.fileId,
+                                    results,
+                                );
+
+                                await this.storageService.updateWorkItem(userId, workItem.fileId, {
+                                    analysisStatus: 'PARTIAL',
+                                    analysisProgress: Math.round((processedQuestions / totalQuestions) * 100),
+                                    analysisError: 'Analysis cancelled by user.',
+                                    analysisPartialResults: true,
+                                    lastModified: new Date().toISOString(),
+                                });
+                            }
+
                             this.analyzerGateway.emitAnalysisProgress({
                                 processedQuestions,
                                 totalQuestions,
                                 currentPillar: pillar,
                                 currentQuestion: 'Analysis cancelled',
                             });
-                            return { results, isCancelled: true };
+                            return { results, isCancelled: true, fileId: workItem?.fileId };
                         }
 
                         let kbContexts: string[];
@@ -135,11 +226,27 @@ export class AnalyzerService {
                                 question.title
                             );
                         } catch (error) {
-                            this.logger.error(`Error retrieving from knowledge base: ${error}`);
-                            return { 
-                                results, 
-                                isCancelled: false, 
-                                error: `Error retrieving from knowledge base. Analysis stopped. ${error}` 
+                            if (workItem && results.length > 0) {
+                                // Store partial results before marking as failed
+                                await this.storageService.storeAnalysisResults(
+                                    userId,
+                                    workItem.fileId,
+                                    results,
+                                );
+
+                                await this.storageService.updateWorkItem(userId, workItem.fileId, {
+                                    analysisStatus: 'PARTIAL',
+                                    analysisProgress: Math.round((processedQuestions / totalQuestions) * 100),
+                                    analysisError: `Error retrieving from knowledge base: ${error}`,
+                                    analysisPartialResults: true,
+                                    lastModified: new Date().toISOString(),
+                                });
+                            }
+                            return {
+                                results,
+                                isCancelled: false,
+                                error: `Error retrieving from knowledge base. Analysis stopped. ${error}`,
+                                fileId: workItem?.fileId
                             };
                         }
 
@@ -159,13 +266,38 @@ export class AnalyzerService {
                                 fileType
                             );
                             results.push(analysis);
+
+                            // Update work item progress if storage is enabled
+                            if (workItem) {
+                                const progress = Math.round((processedQuestions / totalQuestions) * 100);
+                                await this.storageService.updateWorkItem(userId, workItem.fileId, {
+                                    analysisProgress: progress,
+                                    lastModified: new Date().toISOString(),
+                                });
+                            }
+
                         } catch (error) {
-                            this.logger.error(`Error analyzing question "${question.pillar} - ${question.title}". Error: ${error}`);
-                            // Return partial results with error
-                            return { 
-                                results, 
-                                isCancelled: false, 
-                                error: `${error}. Error analyzing question "${question.pillar} - ${question.title}". Analysis stopped, ${processedQuestions} questions where analyzed out of ${totalQuestions}.` 
+                            if (workItem && results.length > 0) {
+                                // Store partial results before marking as failed
+                                await this.storageService.storeAnalysisResults(
+                                    userId,
+                                    workItem.fileId,
+                                    results,
+                                );
+
+                                await this.storageService.updateWorkItem(userId, workItem.fileId, {
+                                    analysisStatus: 'PARTIAL',
+                                    analysisProgress: Math.round((processedQuestions / totalQuestions) * 100),
+                                    analysisError: `${error}. Error analyzing question "${question.pillar} - ${question.title}". Analysis stopped, ${processedQuestions} questions where analyzed out of ${totalQuestions}.`,
+                                    analysisPartialResults: true,
+                                    lastModified: new Date().toISOString(),
+                                });
+                            }
+                            return {
+                                results,
+                                isCancelled: false,
+                                error: `${error}. Error analyzing question "${question.pillar} - ${question.title}". Analysis stopped, ${processedQuestions} questions where analyzed out of ${totalQuestions}.`,
+                                fileId: workItem?.fileId
                             };
                         }
 
@@ -179,26 +311,64 @@ export class AnalyzerService {
                             currentQuestion: question.title,
                         });
                     } catch (error) {
-                        this.logger.error(`Error processing question: ${error}`);
-                        // Return partial results with error
-                        return { 
-                            results, 
-                            isCancelled: false, 
-                            error: 'Error processing question. Analysis stopped.' 
+                        if (workItem && results.length > 0) {
+                            // Store partial results before marking as failed
+                            await this.storageService.storeAnalysisResults(
+                                userId,
+                                workItem.fileId,
+                                results,
+                            );
+
+                            await this.storageService.updateWorkItem(userId, workItem.fileId, {
+                                analysisStatus: 'PARTIAL',
+                                analysisProgress: Math.round((processedQuestions / totalQuestions) * 100),
+                                analysisError: error.message,
+                                analysisPartialResults: true,
+                                lastModified: new Date().toISOString(),
+                            });
+                        }
+                        return {
+                            results,
+                            isCancelled: false,
+                            error: 'Error processing question. Analysis stopped.',
+                            fileId: workItem?.fileId
                         };
                     }
                 }
             }
 
-            return { results, isCancelled: false };
+            // Store final results if storage is enabled
+            if (workItem) {
+                await this.storageService.storeAnalysisResults(
+                    userId,
+                    fileId,
+                    results,
+                );
+                await this.storageService.updateWorkItem(userId, fileId, {
+                    analysisStatus: 'COMPLETED',
+                    analysisProgress: 100,
+                    lastModified: new Date().toISOString(),
+                });
+            }
+
+            return { results, isCancelled: false, fileId: workItem.fileId };
         } catch (error) {
-            this.logger.error('Analysis failed:', error);
-            // Return partial results with error
-            return { 
-                results, 
-                isCancelled: false, 
-                error: `Showing partial results. Analysis failed with error: ${error}` 
-            };
+            // Store partial results if available before marking as failed
+            if (workItem && results.length > 0) {
+                await this.storageService.storeAnalysisResults(
+                    userId,
+                    fileId,
+                    results,
+                );
+
+                await this.storageService.updateWorkItem(userId, fileId, {
+                    analysisStatus: 'PARTIAL',
+                    analysisError: error.message,
+                    analysisPartialResults: true,
+                    lastModified: new Date().toISOString(),
+                });
+            }
+            throw error;
         }
     }
 
@@ -207,21 +377,37 @@ export class AnalyzerService {
     }
 
     async generateIacDocument(
-        fileContent: string,
-        fileName: string,
-        fileType: string,
+        fileId: string,
         recommendations: any[],
-        templateType?: IaCTemplateType
+        templateType: IaCTemplateType,
+        userId?: string,
     ): Promise<{ content: string; isCancelled: boolean; error?: string }> {
         try {
-            // Only proceed if it's an image file
-            if (!this.isImageFile(fileType)) {
+
+            if (!userId) {
+                throw new Error('User ID is required for IaC generation');
+            }
+
+            // Get file content from storage
+            const { content: fileContent, type: fileType } = await this.getFileContent(userId, fileId);
+            const workItem = await this.storageService.getWorkItem(userId, fileId);
+
+            if (!fileType.startsWith('image/')) {
                 throw new Error('This operation is only supported for architecture diagrams');
             }
+
+            await this.storageService.updateWorkItem(userId, fileId, {
+                iacGenerationStatus: 'IN_PROGRESS',
+                iacGenerationProgress: 0,
+                lastModified: new Date().toISOString(),
+            });
 
             let isComplete = false;
             let allSections: DocumentSection[] = [];
             let iteration = 0;
+
+            // Ensure fileContent is in the correct base64 format
+            const processedContent = this.ensureBase64Format(fileContent, fileType);
 
             // Extract base64 data and media type
             const base64Data = fileContent.split(',')[1];
@@ -229,10 +415,19 @@ export class AnalyzerService {
 
             while (!isComplete) {
                 try {
+                    const progress = Math.min(iteration * 10, 90);
                     this.analyzerGateway.emitImplementationProgress({
                         status: `Generating IaC document...`,
-                        progress: Math.min(iteration * 10, 90)
+                        progress,
                     });
+
+                    // Update storage progress if enabled
+                    if (this.storageEnabled && userId && fileId) {
+                        await this.storageService.updateWorkItem(userId, fileId, {
+                            iacGenerationProgress: progress,
+                            lastModified: new Date().toISOString(),
+                        });
+                    }
 
                     iteration++;
 
@@ -245,38 +440,100 @@ export class AnalyzerService {
                         templateType
                     );
 
-                    // If generation was cancelled, return what we have so far
+                    // Handle cancellation and storage updates
                     if (response.isCancelled) {
                         const sortedSections = allSections.sort((a, b) => a.order - b.order);
                         const cancellationNote = '# Note: Template generation was cancelled. Below is a partial version.\n\n';
-                        const content = sortedSections.map(section =>
+                        const partialContent = cancellationNote + sortedSections.map(section =>
                             `# ${section.description}\n${section.content}`
                         ).join('\n\n');
 
+                        if (this.storageEnabled && userId && fileId && allSections.length > 0) {
+                            const extension = templateType.includes('yaml') ? 'yaml' :
+                                templateType.includes('json') ? 'json' : 'tf';
+
+                            // Store partial content
+                            await this.storageService.storeIaCDocument(
+                                userId,
+                                fileId,
+                                partialContent,
+                                extension,
+                                templateType,
+                            );
+
+                            await this.storageService.updateWorkItem(userId, fileId, {
+                                iacGenerationStatus: 'PARTIAL',
+                                iacGenerationProgress: Math.round((allSections.length / 10) * 100), // Estimate progress
+                                iacGenerationError: 'Generation cancelled by user',
+                                iacPartialResults: true,
+                                iacGeneratedFileType: templateType,
+                                lastModified: new Date().toISOString(),
+                            });
+                        }
+
                         return {
-                            content: cancellationNote + content,
-                            isCancelled: true
+                            content: partialContent || '',
+                            isCancelled: true,
                         };
                     }
 
                     const { isComplete: batchComplete, sections } = this.parseImplementationModelResponse(response.content);
-
                     allSections.push(...sections);
                     isComplete = batchComplete;
 
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                } catch (error) {
-                    this.logger.error(`Error in IaC generation iteration: ${error}`);
-                    // If we have any sections generated, return them as partial results
-                    if (allSections.length > 0) {
+                    // If we have sections but encounter an error, save partial results
+                    if (!isComplete && allSections.length > 0) {
                         const sortedSections = allSections.sort((a, b) => a.order - b.order);
-                        const errorNote = '# Note: Template generation encountered an error. Below is a partial version.\n\n';
-                        const content = sortedSections.map(section =>
+                        const partialContent = sortedSections.map(section =>
                             `# ${section.description}\n${section.content}`
                         ).join('\n\n');
-    
+
+                        if (this.storageEnabled && userId && fileId) {
+                            const extension = templateType.includes('yaml') ? 'yaml' :
+                                templateType.includes('json') ? 'json' : 'tf';
+
+                            await this.storageService.storeIaCDocument(
+                                userId,
+                                fileId,
+                                partialContent,
+                                extension,
+                                templateType,
+                            );
+                        }
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (error) {
+                    // Handle error and save partial results if available
+                    if (this.storageEnabled && userId && fileId && allSections.length > 0) {
+                        const sortedSections = allSections.sort((a, b) => a.order - b.order);
+                        const errorNote = '# Note: Template generation encountered an error. Below is a partial version.\n\n';
+                        const partialContent = errorNote + sortedSections.map(section =>
+                            `# ${section.description}\n${section.content}`
+                        ).join('\n\n');
+
+                        const extension = templateType.includes('yaml') ? 'yaml' :
+                            templateType.includes('json') ? 'json' : 'tf';
+
+                        await this.storageService.storeIaCDocument(
+                            userId,
+                            fileId,
+                            partialContent,
+                            extension,
+                            templateType,
+                        );
+
+                        await this.storageService.updateWorkItem(userId, fileId, {
+                            iacGenerationStatus: 'PARTIAL',
+                            iacGenerationProgress: Math.round((allSections.length / 10) * 100),
+                            iacGenerationError: error.message,
+                            iacPartialResults: true,
+                            iacGeneratedFileType: templateType,
+                            lastModified: new Date().toISOString(),
+                        });
+
                         return {
-                            content: errorNote + content,
+                            content: partialContent,
                             isCancelled: false,
                             error: `Template generation encountered an error. Showing partial results. ${error}`
                         };
@@ -291,15 +548,45 @@ export class AnalyzerService {
             });
 
             const sortedSections = allSections.sort((a, b) => a.order - b.order);
+            const content = sortedSections.map(section =>
+                `# ${section.description}\n${section.content}`
+            ).join('\n\n');
+
+            // Store final results if storage is enabled
+            if (this.storageEnabled && userId && fileId) {
+                const extension = templateType.includes('yaml') ? 'yaml' :
+                    templateType.includes('json') ? 'json' : 'tf';
+
+                await this.storageService.storeIaCDocument(
+                    userId,
+                    fileId,
+                    content,
+                    extension,
+                    templateType,
+                );
+
+                await this.storageService.updateWorkItem(userId, fileId, {
+                    iacGenerationStatus: 'COMPLETED',
+                    iacGenerationProgress: 100,
+                    iacGeneratedFileType: templateType,
+                    lastModified: new Date().toISOString(),
+                });
+            }
+
             return {
-                content: sortedSections.map(section =>
-                    `# ${section.description}\n${section.content}`
-                ).join('\n\n'),
+                content,
                 isCancelled: false
             };
 
         } catch (error) {
             this.logger.error('Error generating IaC document:', error);
+            if (userId && fileId) {
+                await this.storageService.updateWorkItem(userId, fileId, {
+                    iacGenerationStatus: 'FAILED',
+                    iacGenerationError: error.message,
+                    lastModified: new Date().toISOString(),
+                });
+            }
             throw new Error('Failed to generate IaC document');
         }
     }
@@ -368,8 +655,8 @@ export class AnalyzerService {
 
     async getMoreDetails(
         selectedItems: any[],
-        fileContent: string,
-        fileType: string,
+        userId: string,
+        fileId: string,
         templateType?: IaCTemplateType
     ): Promise<{ content: string; error?: string }> {
         const filteredItems = selectedItems.filter(item => !item.applied);
@@ -378,13 +665,33 @@ export class AnalyzerService {
                 throw new Error('No items selected for detailed analysis');
             }
 
-            if (!fileContent) {
-                throw new Error('No file content provided');
+            if (!fileId || !userId) {
+                throw new Error('File ID and User ID are required');
             }
+
+            // Get file type from work item
+            const workItem = await this.storageService.getWorkItem(userId, fileId);
+            const fileType = workItem.fileType;
 
             if (!fileType) {
                 throw new Error('No file type provided');
             }
+
+            // Get the file content from storage
+            const { data: fileContent } = await this.storageService.getOriginalContent(
+                userId,
+                fileId,
+                false
+            );
+
+            // Convert Buffer to string if necessary and ensure proper format
+            const processedContent = Buffer.isBuffer(fileContent) 
+            ? fileType.startsWith('image/') 
+                ? `data:${fileType};base64,${fileContent.toString('base64')}`
+                : fileContent.toString('utf-8')
+            : typeof fileContent === 'string' && fileType.startsWith('image/') && !fileContent.startsWith('data:')
+                ? `data:${fileType};base64,${fileContent}`
+                : fileContent;
 
             let allDetails = '';
             let hasError = false;
@@ -406,13 +713,13 @@ export class AnalyzerService {
                     while (!isComplete) {
                         const response = isImage
                             ? await this.invokeBedrockModelForImageDetails(
-                                fileContent,
+                                processedContent,
                                 item,
                                 itemDetails,
                                 templateType
                             )
                             : await this.invokeBedrockModelForMoreDetails(
-                                this.buildDetailsPrompt(item, fileContent, itemDetails),
+                                this.buildDetailsPrompt(item, processedContent, itemDetails),
                                 this.buildDetailsSystemPrompt()
                             );
 
@@ -599,26 +906,37 @@ export class AnalyzerService {
         question: QuestionGroup,
         kbContexts: string[],
         fileType: string
-    ) {
-        const isImage = this.isImageFile(fileType);
-        const prompt = isImage
-            ? this.buildImagePrompt(question, kbContexts)
-            : this.buildPrompt(question, kbContexts);
+    ): Promise<any> {
+        try {
+            const isImage = fileType.startsWith('image/');
+            const prompt = isImage
+                ? this.buildImagePrompt(question, kbContexts)
+                : this.buildPrompt(question, kbContexts);
 
-        const systemPrompt = isImage
-            ? this.buildImageSystemPrompt(question)
-            : this.buildSystemPrompt(fileContent, question);
+            const systemPrompt = isImage
+                ? this.buildImageSystemPrompt(question)
+                : this.buildSystemPrompt(fileContent, question);
 
-        const response = isImage
-            ? await this.invokeBedrockModelWithImage(prompt, systemPrompt, fileContent)
-            : await this.invokeBedrockModel(prompt, systemPrompt);
+            // Ensure fileContent is properly formatted for images
+            if (isImage && !fileContent.startsWith('data:')) {
+                this.logger.error('Invalid image content format');
+                throw new Error('Invalid image content format');
+            }
 
-        return {
-            pillar: question.pillar,
-            question: question.title,
-            questionId: question.questionId,
-            bestPractices: this.parseModelResponse(response, question),
-        };
+            const response = isImage
+                ? await this.invokeBedrockModelWithImage(prompt, systemPrompt, fileContent)
+                : await this.invokeBedrockModel(prompt, systemPrompt);
+
+            return {
+                pillar: question.pillar,
+                question: question.title,
+                questionId: question.questionId,
+                bestPractices: this.parseModelResponse(response, question),
+            };
+        } catch (error) {
+            this.logger.error('Error analyzing question:', error);
+            throw error;
+        }
     }
 
     private cleanJsonString(jsonString: string): string {
@@ -812,36 +1130,40 @@ export class AnalyzerService {
         const bedrockClient = this.awsConfig.createBedrockClient();
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
 
-        // Extract base64 data from data URL
-        const base64Data = imageContent.split(',')[1];
-        const mediaType = imageContent.split(';')[0].split(':')[1];
-
-        const payload = {
-            max_tokens: 4096,
-            anthropic_version: "bedrock-2023-05-31",
-            system: systemPrompt,
-            messages: [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "image",
-                            source: {
-                                type: "base64",
-                                media_type: mediaType,
-                                data: base64Data,
-                            },
-                        },
-                        {
-                            type: "text",
-                            text: prompt
-                        }
-                    ],
-                }
-            ],
-        };
-
         try {
+            // Extract base64 data and media type from data URL
+            const matches = imageContent.match(/^data:([^;]+);base64,(.+)$/);
+            if (!matches) {
+                throw new Error('Invalid image data format');
+            }
+
+            const [, mediaType, base64Data] = matches;
+
+            const payload = {
+                max_tokens: 4096,
+                anthropic_version: "bedrock-2023-05-31",
+                system: systemPrompt,
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "image",
+                                source: {
+                                    type: "base64",
+                                    media_type: mediaType,
+                                    data: base64Data,
+                                },
+                            },
+                            {
+                                type: "text",
+                                text: prompt
+                            }
+                        ],
+                    }
+                ],
+            };
+
             const command = new InvokeModelCommand({
                 modelId,
                 contentType: 'application/json',
@@ -853,12 +1175,8 @@ export class AnalyzerService {
             const responseBody = new TextDecoder().decode(response.body);
             const parsedResponse = JSON.parse(responseBody);
 
-            const cleanedAnalysisJsonString = this.cleanJsonString(parsedResponse.content[0].text)
-
-            const parsedAnalysis = JSON.parse(cleanedAnalysisJsonString)
-
-            // return JSON.parse(responseBody);
-            return parsedAnalysis;
+            const cleanedAnalysisJsonString = this.cleanJsonString(parsedResponse.content[0].text);
+            return JSON.parse(cleanedAnalysisJsonString);
         } catch (error) {
             this.logger.error('Error invoking Bedrock model:', error);
             throw new Error(`Failed to analyze diagram with AI model. Error invoking Bedrock model: ${error}`);
@@ -895,9 +1213,9 @@ export class AnalyzerService {
 
             const parsedResponse = JSON.parse(responseBody);
 
-            const cleanedAnalysisJsonString = this.cleanJsonString(parsedResponse.content[0].text)
+            const cleanedAnalysisJsonString = this.cleanJsonString(parsedResponse.content[0].text);
 
-            const parsedAnalysis = JSON.parse(cleanedAnalysisJsonString)
+            const parsedAnalysis = JSON.parse(cleanedAnalysisJsonString);
 
             return parsedAnalysis;
         } catch (error) {
@@ -1153,7 +1471,7 @@ export class AnalyzerService {
             this.cachedBestPractices = baseBestPractices.map(bp => {
                 // Create the same unique key for lookup
                 const uniqueKey = `${bp.Question}|||${bp['Best Practice']}`;
-                
+
                 return {
                     ...bp,
                     bestPracticeId: choiceIdMapping.get(uniqueKey) ||

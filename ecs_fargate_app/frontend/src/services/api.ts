@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { AnalysisResult, RiskSummary, UploadedFile, IaCTemplateType } from '../types';
+import { AnalysisResult, RiskSummary, IaCTemplateType } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -24,15 +24,13 @@ const handleError = (error: unknown) => {
 
 export const analyzerApi = {
   async analyze(
-    file: UploadedFile,
+    fileId: string,
     workloadId: string,
     selectedPillars: string[]
-  ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string }> {
+  ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string; fileId?: string }> {
     try {
       const response = await api.post('/analyzer/analyze', {
-        fileContent: file.content,
-        fileName: file.name,
-        fileType: file.type,
+        fileId,
         workloadId,
         selectedPillars,
       });
@@ -121,19 +119,15 @@ export const analyzerApi = {
   },
 
   async generateIacDocument(
-    fileContent: string,
-    fileName: string,
-    fileType: string,
+    fileId: string,
     recommendations: AnalysisResult[],
-    templateType: IaCTemplateType
+    templateType: IaCTemplateType,
   ): Promise<{ content: string; isCancelled: boolean; error?: string }> {
     try {
       const response = await api.post('/analyzer/generate-iac', {
-        fileContent,
-        fileName,
-        fileType,
+        fileId,
         recommendations,
-        templateType
+        templateType,
       });
       return response.data;
     } catch (error) {
@@ -148,15 +142,13 @@ export const analyzerApi = {
 
   async getMoreDetails(
     selectedItems: AnalysisResult[],
-    fileContent: string,
-    fileType: string,
+    fileId: string,
     templateType: IaCTemplateType
   ): Promise<{ content: string; error?: string }> {
     try {
       const response = await api.post('/analyzer/get-more-details', {
         selectedItems,
-        fileContent,
-        fileType,
+        fileId,
         templateType
       });
       return response.data;
@@ -174,5 +166,15 @@ export const analyzerApi = {
     } catch (error) {
       throw handleError(error);
     }
-  }
+  },
+
+  async storeAnalysisResults(fileId: string, results: AnalysisResult[]): Promise<void> {
+    try {
+      await api.post(`/analyzer/store-results/${fileId}`, {
+        results
+      });
+    } catch (error) {
+      throw handleError(error);
+    }
+  },
 };

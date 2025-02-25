@@ -98,3 +98,48 @@ export enum IaCTemplateType {
 }
 
 export * from './auth';
+
+export interface WorkItem {
+  // Partition and Sort Keys
+  userId: string;           // Partition key (email hash)
+  fileId: string;          // Sort key (file hash)
+  
+  // Attributes
+  fileName: string;        // Original file name
+  fileType: string;        // MIME type
+  uploadDate: string;      // ISO timestamp
+  
+  // Analysis Status
+  analysisStatus: WorkItemStatus;
+  analysisProgress: number;
+  analysisError?: string;
+  analysisPartialResults?: boolean;
+  
+  // IaC Generation Status
+  iacGenerationStatus: WorkItemStatus;
+  iacGenerationProgress: number;
+  iacGenerationError?: string;
+  iacPartialResults?: boolean;
+  
+  // S3 References
+  s3Prefix: string;        // Base S3 path for this work item
+  
+  // Metadata
+  lastModified: string;    // Last activity timestamp
+  tags?: string[];         // Optional user tags
+  workloadId?: string;     // Associated WA Tool workload ID
+}
+
+export type WorkItemStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'PARTIAL';
+
+export interface WorkItemContent {
+  data: string;
+  contentType: string;
+}
+
+export interface WorkItemResponse {
+  workItem: WorkItem;
+  content?: WorkItemContent | string;
+  analysisResults?: any;
+  iacDocument?: string;
+}

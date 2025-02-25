@@ -14,28 +14,21 @@ interface DetailsModalProps {
     onDismiss: () => void;
     content: string;
     error?: string | undefined;
+    originalFileName?: string;
 }
 
 export const DetailsModal: React.FC<DetailsModalProps> = ({
     visible,
     onDismiss,
     content,
-    error
+    error,
+    originalFileName = 'unknown_file'
 }) => {
     const handleDownload = () => {
-        const now = new Date();
-        const timestamp = now.toLocaleString('en-AU', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-            timeZone: 'UTC'
-        }).replace(/[/,:]/g, '').replace(/\s/g, '_');
-
-        const newFileName = `WA_Details_${timestamp}_UTC.md`;
+        const safeFileName = originalFileName.replace(/\./g, '_');
+        
+        const newFileName = `IaCAnalyzer_Recommendation_Details_${safeFileName}.md`;
+        
         const blob = new Blob([content], { type: 'text/markdown' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');

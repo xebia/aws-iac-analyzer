@@ -32,12 +32,13 @@ interface AnalysisResultsProps {
   onGenerateIacDocument: () => void;
   isDownloading: boolean;
   isImplementing: boolean;
-  uploadedFileContent: string;
   isLoadingDetails: boolean;
   setIsLoadingDetails: (loading: boolean) => void;
   uploadedFileType: string;
   selectedIaCType: IaCTemplateType;
   setError: (error: string | null) => void;
+  fileId: string;
+  fileName: string;
 }
 
 interface EnhancedBestPractice extends BestPractice {
@@ -51,7 +52,7 @@ interface PreferencesType {
   visibleContent: readonly string[];
 }
 
-export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAnalyzing, onDownloadRecommendations, onGenerateIacDocument, isDownloading, isImplementing, uploadedFileContent, isLoadingDetails, setIsLoadingDetails, uploadedFileType, selectedIaCType, setError }) => {
+export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAnalyzing, onDownloadRecommendations, onGenerateIacDocument, isDownloading, isImplementing, isLoadingDetails, setIsLoadingDetails, uploadedFileType, selectedIaCType, setError, fileId, fileName }) => {
   const [preferences, setPreferences] = useState<PreferencesType>({
     pageSize: 10,
     visibleContent: ['pillar', 'question', 'name', 'status', 'reason', 'recommendations'],
@@ -61,6 +62,10 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
   const [detailsContent, setDetailsContent] = useState('');
   const [detailsError, setDetailsError] = useState<string | null>(null);
 
+  const handleGenerateIacClick = () => {
+    onGenerateIacDocument();
+  };
+
   const handleGetMoreDetails = async () => {
     try {
       setIsLoadingDetails(true);
@@ -68,8 +73,7 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
 
       const result = await analyzerApi.getMoreDetails(
         selectedItems,
-        uploadedFileContent,
-        uploadedFileType,
+        fileId,
         selectedIaCType
       );
 
@@ -81,12 +85,12 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
         setDetailsContent(result.content);
         setDetailsModalVisible(true);
       } else {
-        setError('No content received from analysis');
+        setError('No content received from analysis. Please try again.');
       }
     } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to get detailed analysis');
+      setError(error instanceof Error ? error.message : 'Failed to get detailed analysis');
     } finally {
-        setIsLoadingDetails(false);
+      setIsLoadingDetails(false);
     }
   };
 
@@ -186,7 +190,7 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
                   Get More Details
                 </Button>
                 <Button
-                  onClick={onGenerateIacDocument}
+                  onClick={handleGenerateIacClick}
                   loading={isImplementing}
                   disabled={isDownloading || isImplementing || !uploadedFileType.startsWith('image/')}
                   iconName="gen-ai"
@@ -321,6 +325,7 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
         onDismiss={() => setDetailsModalVisible(false)}
         content={detailsContent}
         error={detailsError || undefined}
+        originalFileName={fileName}
       />
     </div>
   );
