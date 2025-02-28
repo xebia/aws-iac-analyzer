@@ -44,9 +44,72 @@ The project deploys resources running on the following AWS services:
 
 ![wa_aic_analyzer_screenshot_template_generation](/assets/wa_aic_analyzer_screenshot_template_generation.png)
 
-## Prerequisites
+## Installation and Deployment
 
-The following tools must be installed on your local machine:
+You have three options for deploying this solution:
+- Option 1: Using a CloudFormation Deployment Stack (Recommended)
+- Option 2: Using a Deployment Script
+- Option 3: Manual Deployment
+
+### Option 1: Using a CloudFormation Deployment Stack (Recommended)
+
+This option uses AWS CloudFormation to create a temporary deployment environment to deploy the Well-Architected IaC Analyzer solution. This approach doesn't require any tools to be installed on your local machine.
+
+#### Prerequisites
+
+You must enable **AWS Bedrock Model Access** to the following LLM models in your AWS region:
+* **Titan Text Embeddings V2**
+* **Claude 3.5 Sonnet v2**
+* To enable these models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
+
+#### Deployment Steps
+
+1. Download the CloudFormation template: [iac-analyzer-deployment-stack.yaml](https://github.com/aws-samples/well-architected-iac-analyzer/blob/main/cfn_deployment_stacks/iac-analyzer-deployment-stack.yaml)
+
+2. Open the [AWS CloudFormation console](https://console.aws.amazon.com/cloudformation/home#/stacks/create?stackName=iac-analyzer-deployment-stack):
+   - Make sure you are in the same AWS region where you enabled access to the LLM models
+
+3. On the "Create stack" page:
+   - Select "Upload a template file" and upload the `iac-analyzer-deployment-stack.yaml` template
+   - Choose "Next"
+
+4. On the "Specify stack details" page. Enter or change the stack name, then:
+   - Change the stack parameters as needed. Check the [CloudFormation Configuration Parameters](#cloudFormation-configuration-parameters) section below for details
+   - Choose "Next" until reaching the "Review" page and choose "Submit"
+   - The deployment process typically takes 15-20 minutes.
+
+The temporary deployment environment will deploy the Well-Architected IaC Analyze solution under a new stack named `WA-IaC-Analyzer-{region}-GenAIStack`.
+
+After deployment completes, find the application URL in the stack outputs:
+   - In the CloudFormation console, navigate to the **Outputs** tab of the stack named `WA-IaC-Analyzer-{region}-GenAIStack`
+   - Look for the **FrontendURL** value
+
+#### Post-Deployment Steps
+
+1. If you enabled authentication with a custom domain:
+   - Create a DNS record (CNAME or Alias) pointing to the ALB domain name
+
+2. If you created a new Cognito user pool:
+   - Navigate to the Amazon Cognito console
+   - Find the user pool created by the stack (named "WAAnalyzerUserPool")
+   - Add users who should have access to the application
+
+3. Access your deployed application using the URL from the CloudFormation outputs (or your CNAME or Alias pointing to the ALB)
+
+### Option 2: Using a Deployment Script
+
+<details>
+
+<summary>Expand this section for instructions using the deployment script:</summary>
+
+#### Prerequisites
+
+You must enable **AWS Bedrock Model Access** to the following LLM models in your AWS region:
+* **Titan Text Embeddings V2**
+* **Claude 3.5 Sonnet v2**
+* To enable these models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
+
+Apart from enabling access to the model listed above, the following tools must be installed on your local machine:
 
 * [Node.js](https://nodejs.org/en/download) (v18 or later) and npm
 * [Python](https://www.python.org/downloads/) (v3.11 or later) and pip
@@ -56,21 +119,7 @@ The following tools must be installed on your local machine:
   * [Docker](https://docs.docker.com/get-started/get-docker/)
 * [AWS CLI](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-install.html) configured with [appropriate credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html)
 
-### AWS Bedrock Model Access
-
-You must enable access to the following models in your AWS region:
-* **Titan Text Embeddings V2**
-* **Claude 3.5 Sonnet v2**
-
-To enable these models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
-
-## Installation and Deployment
-
-> **Note:** If you would like to change the default Load Balancer scheme, AI model or authentication options, check the [Configuration Options section](#configuration-options) first before deploying.
-
-You have two options for deploying this solution:
-
-### Option 1: Using the Deployment Script (Recommended)
+> **Note:** If you would like to change the default Load Balancer scheme, AI model or authentication options, check the [Configuration Options For Manual Deployments section](#configuration-options-for-manual-deployments) first before deploying.
 
 1. Clone the Repository
 ```bash
@@ -99,19 +148,44 @@ The script will automatically:
 - Deploy the CDK stack
 - Provide post-deployment information
 
-### Option 2: Manual Deployment
+After successful deployment, you can find the Application Load Balancer (ALB) DNS name in:
+1. The outputs of the `deploy-wa-analyzer.sh` script
+2. The outputs section of the CloudFormation stack named `WA-IaC-Analyzer-{region}-GenAIStack` in the AWS Console
+
+</details>
+
+### Option 3: Manual Deployment
 
 <details>
 
-<summary>If you prefer to deploy step by step, expand this section for more instructions:</summary>
+<summary>If you prefer to manually deploy step by step, expand this section for more instructions:</summary>
 
-#### 1. Clone the Repository
+#### Prerequisites
+
+You must enable **AWS Bedrock Model Access** to the following LLM models in your AWS region:
+* **Titan Text Embeddings V2**
+* **Claude 3.5 Sonnet v2**
+* To enable these models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
+
+Apart from enabling access to the model listed above, the following tools must be installed on your local machine:
+
+* [Node.js](https://nodejs.org/en/download) (v18 or later) and npm
+* [Python](https://www.python.org/downloads/) (v3.11 or later) and pip
+* [AWS CDK CLI](https://docs.aws.amazon.com/cdk/v2/guide/cli.html)
+* Either one of these container tools:
+  * [Finch](https://github.com/runfinch/finch?tab=readme-ov-file#installing-finch)
+  * [Docker](https://docs.docker.com/get-started/get-docker/)
+* [AWS CLI](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-install.html) configured with [appropriate credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html)
+
+> **Note:** If you would like to change the default Load Balancer scheme, AI model or authentication options, check the [Configuration Options For Manual Deployments section](#configuration-options-for-manual-deployments) first before deploying.
+
+1. Clone the Repository
 ```bash
 git clone https://github.com/aws-samples/well-architected-iac-analyzer.git
 cd well-architected-iac-analyzer
 ```
 
-#### 2. Set Up Python Virtual Environment
+2. Set Up Python Virtual Environment
 ```bash
 # Create virtual environment
 python -m venv .venv
@@ -126,7 +200,7 @@ source .venv/bin/activate
 # You should see (.venv) at the beginning of your prompt
 ```
 
-#### 3. Install Dependencies
+3. Install Dependencies
 
 Install Python dependencies:
 ```bash
@@ -152,7 +226,7 @@ npm install
 cd ../..
 ```
 
-#### 4. Deploy the Stack
+4. Deploy the Stack
 
 Set the AWS region and ignore ECR credentials storage during CDK deployment:
 ```bash
@@ -179,15 +253,131 @@ Deploy the stack:
 cdk deploy
 ```
 
-</details>
-
-## Accessing the Application
-
 After successful deployment, you can find the Application Load Balancer (ALB) DNS name in:
 1. The outputs of the `cdk deploy` command
 2. The outputs section of the CloudFormation stack named `WA-IaC-Analyzer-{region}-GenAIStack` in the AWS Console
 
-## Configuration Options
+</details>
+
+## CloudFormation Configuration Parameters
+
+<details>
+
+<summary>The deployment stack template provides a comprehensive set of configuration options organized into parameter groups. Expand this to see more details:</summary>
+
+### Global Settings
+
+- **Deploy with internet-facing Application Load Balancer?** (`PublicLoadBalancer`)
+  - `False` (Default): Deploys an internal load balancer accessible only within your VPC network
+  - `True`: Deploys an internet-facing load balancer accessible from the internet
+  - **Access considerations for internal load balancers**: To access an internal load balancer, you'll need network connectivity to the deployed VPC via:
+    * VPC peering
+    * VPN connection
+    * AWS Direct Connect
+    * Other network connectivity solutions
+  - ⚠️ **Security Warning**: If you select `True` with authentication disabled, your application will be publicly accessible without authentication. For public-facing deployments, we strongly recommend enabling authentication.
+
+- **Amazon Bedrock Model ID** (`ModelId`)
+  - Default: `anthropic.claude-3-5-sonnet-20241022-v2:0` (Claude 3.5 Sonnet v2)
+  - You can specify an alternative [Bedrock model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns) if needed
+  - **Note**: This application has been primarily tested with Claude 3.5 Sonnet v2. While other Bedrock models may work, using different models might lead to unexpected results.
+
+### Authentication Settings
+
+- **Enable Authentication** (`Authentication`)
+  - `False` (Default): No authentication required to access the application
+  - `True`: Enables authentication via the selected method
+
+- **Authentication Method** (`AuthType`)
+  - `none` (Default): No authentication
+  - `new-cognito`: Creates a new Amazon Cognito user pool
+  - `existing-cognito`: Uses an existing Amazon Cognito user pool
+  - `oidc`: Uses an OpenID Connect provider (Auth0, Okta, etc.)
+
+- **SSL Certificate ARN** (`CertificateArn`)
+  - Required when `Authentication` is set to `True`
+  - Format: `arn:aws:acm:region:account:certificate/certificate-id`
+  - **Important**: Before enabling authentication, you must have a valid AWS Certificate Manager (ACM) certificate covering the DNS domain name that you plan to use for accessing the application
+
+### Authentication-Specific Settings
+
+#### New Cognito User Pool Settings
+These parameters are required when `AuthType` is set to `new-cognito`:
+
+- **Cognito Domain Prefix** (`CognitoDomainPrefix`)
+  - A unique prefix for your Cognito domain (e.g., `wa-analyzer`)
+  - The resulting domain will be: `your-prefix.auth.region.amazoncognito.com`
+
+- **Allowed Callback URLs** (`CallbackUrls`)
+  - Comma-separated list of URLs where users will be redirected after signing in
+  - Must include the URL you'll use to access the application, followed by `/oauth2/idpresponse`
+  - Example: `https://wa-analyzer.example.com/oauth2/idpresponse`
+
+- **Logout Redirect URL** (`LogoutUrl`)
+  - URL where users will be redirected after signing out
+  - Example: `https://wa-analyzer.example.com`
+
+#### Existing Cognito User Pool Settings
+These parameters are required when `AuthType` is set to `existing-cognito`:
+
+- **Existing Cognito User Pool ARN** (`ExistingUserPoolArn`)
+  - ARN of your existing Cognito user pool
+  - Format: `arn:aws:cognito-idp:region:account:userpool/pool-id`
+
+- **Existing Cognito Client ID** (`ExistingUserPoolClientId`)
+  - The client ID from your existing Cognito user pool
+
+- **Existing Cognito Domain** (`ExistingUserPoolDomain`)
+  - The domain of your existing Cognito user pool
+  - Can be a Cognito prefix domain: `your-prefix.auth.region.amazoncognito.com`
+  - Or a custom domain: `auth.your-domain.com`
+
+- **Existing Cognito Logout URL** (`ExistingCognitoLogoutUrl`)
+  - The URL users are redirected to after signing out
+  - Example: `https://wa-analyzer.example.com`
+
+#### OpenID Connect (OIDC) Settings
+These parameters are required when `AuthType` is set to `oidc`:
+
+- **OIDC Issuer URL** (`OidcIssuer`)
+  - The issuer URL for your OIDC provider
+  - Example for Auth0: `https://your-tenant.us.auth0.com/authorize`
+
+- **OIDC Client ID** (`OidcClientId`)
+  - The client ID from your OIDC provider
+
+- **OIDC Authorization Endpoint URL** (`OidcAuthorizationEndpoint`)
+  - The authorization endpoint of your OIDC provider
+  - Example for Auth0: `https://your-tenant.us.auth0.com/authorize`
+
+- **OIDC Token Endpoint URL** (`OidcTokenEndpoint`)
+  - The token endpoint of your OIDC provider
+  - Example for Auth0: `https://your-tenant.us.auth0.com/oauth/token`
+
+- **OIDC User Info Endpoint URL** (`OidcUserInfoEndpoint`)
+  - The user info endpoint of your OIDC provider
+  - Example for Auth0: `https://your-tenant.us.auth0.com/userinfo`
+
+- **OIDC Logout URL** (`OidcLogoutUrl`)
+  - The URL for logging out users
+  - Example for Auth0: `https://your-tenant.us.auth0.com/v2/logout?client_id=your-client-id&returnTo=https://wa-analyzer.example.com`
+
+> **Important OIDC Note**: Before deploying with OIDC authentication, you must create a secret in AWS Secrets Manager named `WAIaCAnalyzerOIDCSecret` containing your OIDC client secret in the same region where you'll deploy the stack:
+> ```bash
+> # Using AWS CLI
+> aws secretsmanager create-secret \
+>   --name WAIaCAnalyzerOIDCSecret \
+>   --secret-string "your-oidc-client-secret" \
+>   --region <aws-region>
+> ```
+
+</details>
+
+## Configuration Options For Manual Deployments
+
+<details>
+
+<summary>If you are following either the Option 2 or 3 for deploying the solution, configuration parameters are managed from the `config.ini` file. Expand this section to learn more:</summary>
 
 ### Model Selection
 
@@ -284,7 +474,7 @@ If you plan to use OIDC authentication (`auth_type = oidc`), follow these steps:
 
    # Or you can create it via the AWS Console:
    # 1. Go to AWS Secrets Manager console
-   # 2. Click "Store a new secret"
+   # 2. Choose "Store a new secret"
    # 3. Choose "Other type of secret"
    # 4. Enter your OIDC client secret as a plaintext value
    # 5. Set the secret name exactly as: WAIaCAnalyzerOIDCSecret
@@ -307,11 +497,22 @@ If you plan to use OIDC authentication (`auth_type = oidc`), follow these steps:
    oidc_logout_url = https://<okta-tenant-id>.us.auth0.com/v2/logout?client_id=<oidc-client-id>&returnTo=https://wa-analyzer.example.com (# Refer to https://auth0.com/docs/authenticate/login/logout)
    ```
 
+</details>
+
 ## Clean up
 
 You have two options to remove all resources created by this solution:
 
-### Option 1 - Using the Destroy Script (Recommended)
+### Option 1 - Using AWS Console (Recommended)
+
+1. Open the CloudFormation console
+2. Find and delete the stack named `WA-IaC-Analyzer-{region}-GenAIStack`
+
+### Option 2 - Using the Destroy Script
+
+<details>
+
+<summary>Only use this clean up option if you followed either Option 2 or 3 when deploying the solution. Expand for more details:</summary>:
 
 1. Make the destroy script executable:
 ```bash
@@ -332,10 +533,7 @@ The script will automatically:
 - Set up the necessary environment
 - Destroy all resources in the stack
 
-### Option 2 - Using AWS Console
-
-1. Open the CloudFormation console
-2. Find and delete the stack named `WA-IaC-Analyzer-{region}-GenAIStack`
+</details>
 
 ## Local Development
 
@@ -371,16 +569,16 @@ In addition to the main prerequisites, ensure you have:
 3. Create a Bedrock Knowledge Base:
    - Go to the Amazon Bedrock console
    - Navigate to Knowledge bases
-   - Click "Create knowledge base with vector store"
+   - Choose "Create knowledge base with vector store"
    - Enter a name for your knowledge base
    - Select "Amazon S3" as the data source
-   - Click "Next"
+   - Choose "Next"
    - Add your S3 bucket as a data source:
      - Choose the bucket you created
      - Leave all other settings as default
-     - Click "Next"
+     - Choose "Next"
    - Select "Titan Text Embeddings v2" as the embedding model and use the default Vector database settings
-   - Click "Next" and Complete the knowledge base creation
+   - Choose "Next" and Complete the knowledge base creation
    - Note the Knowledge Base ID from the details page
 
 ### Setting up Local Development Environment
