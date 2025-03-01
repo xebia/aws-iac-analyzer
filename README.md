@@ -17,9 +17,10 @@ The project deploys resources running on the following AWS services:
 * Amazon Elastic Container Service (ECS)
 * AWS Fargate
 * Amazon S3
+* Amazon DynamoDB
 * AWS Lambda
 * Amazon Bedrock
-* Amazon Cognito (Optional - Check the [Authentication Options section](#authentication-options))
+* Amazon Cognito (Optional)
 
 ## Features
 
