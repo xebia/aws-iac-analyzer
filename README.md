@@ -76,13 +76,15 @@ You must enable **AWS Bedrock Model Access** to the following LLM models in your
 
 4. On the "Specify stack details" page. Enter or change the stack name, then:
    - Change the stack parameters as needed. Check the [CloudFormation Configuration Parameters](#cloudFormation-configuration-parameters) section below for details
-   - Choose "Next" until reaching the "Review" page and choose "Submit"
-   - The deployment process typically takes 15-20 minutes.
 
-The temporary deployment environment will deploy the Well-Architected IaC Analyze solution under a new stack named `WA-IaC-Analyzer-{region}-GenAIStack`.
+   > **Note:** By default, the stack deploys with a Private Application Load Balancer (internal) without authentication enabled. If you choose to make the ALB public (internet-facing), it's strongly recommended to also enable authentication to properly secure your application.
 
-After deployment completes, find the application URL in the stack outputs:
-   - In the CloudFormation console, navigate to the **Outputs** tab of the stack named `WA-IaC-Analyzer-{region}-GenAIStack`
+   - Choose "Next" until reaching the "Review" page and choose "Submit".
+
+**The deployment process typically takes 15-20 minutes.**
+
+Once complete, you'll find a new CloudFormation stack named **WA-IaC-Analyzer-{region}-GenAIStack** containing all the deployed resources for this solution. Find the application URL in the stack outputs:
+   - In the CloudFormation console, navigate to the **Outputs** tab of the stack named **WA-IaC-Analyzer-{region}-GenAIStack**
    - Look for the **FrontendURL** value
 
 #### Post-Deployment Steps
