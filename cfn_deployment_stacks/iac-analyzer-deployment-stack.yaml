@@ -5,9 +5,9 @@ Parameters:
   # Base Settings
   PublicLoadBalancer:
     Type: String
-    Default: 'False'
+    Default: 'True'
     AllowedValues: ['True', 'False']
-    Description: 'Deploy with internet-facing load balancer (True) or internal load balancer (False). WARNING: If you set this to True, consider to also enable authentication or your application will be publicly accessible.'
+    Description: 'Deploy with internet-facing load balancer (True, default) or internal load balancer (False). WARNING: With the default internet-facing configuration, it is strongly recommended to also enable authentication to properly secure your application.'
   
   ModelId:
     Type: String
@@ -25,7 +25,7 @@ Parameters:
     Type: String
     Default: 'none'
     AllowedValues: ['none', 'new-cognito', 'existing-cognito', 'oidc']
-    Description: 'Authentication type to use (none, new-cognito, existing-cognito, oidc)'
+    Description: 'Authentication type to use (none, new-cognito, existing-cognito, oidc). Required when Authentication is True.'
   
   # Certificate Settings
   CertificateArn:

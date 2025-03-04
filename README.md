@@ -77,7 +77,7 @@ You must enable **AWS Bedrock Model Access** to the following LLM models in your
 4. On the "Specify stack details" page. Enter or change the stack name, then:
    - Change the stack parameters as needed. Check the [CloudFormation Configuration Parameters](#cloudFormation-configuration-parameters) section below for details
 
-   > **Note:** By default, the stack deploys with a Private Application Load Balancer (internal) without authentication enabled. If you choose to make the ALB public (internet-facing), it's strongly recommended to also enable authentication to properly secure your application.
+   > **Note:** By default, the stack deploys with a Public Application Load Balancer (internet-facing) without authentication enabled. It's strongly recommended to enable authentication to properly secure your internet-facing application.
 
    - Choose "Next" until reaching the "Review" page and choose "Submit".
 
@@ -271,8 +271,8 @@ After successful deployment, you can find the Application Load Balancer (ALB) DN
 ### Global Settings
 
 - **Deploy with internet-facing Application Load Balancer?** (`PublicLoadBalancer`)
-  - `False` (Default): Deploys an internal load balancer accessible only within your VPC network
-  - `True`: Deploys an internet-facing load balancer accessible from the internet
+  - `True` (Default): Deploys an internet-facing load balancer accessible from the internet
+  - `False`: Deploys an internal load balancer accessible only within your VPC network
   - **Access considerations for internal load balancers**: To access an internal load balancer, you'll need network connectivity to the deployed VPC via:
     * VPC peering
     * VPN connection
@@ -394,18 +394,21 @@ model_id = anthropic.claude-3-5-sonnet-20241022-v2:0
 
 ### Load Balancer Scheme Selection
 
-By default, this project will deploy the Load Balancer scheme as [**internal**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) **(Private load balancer)**. To access the application, you will need to be in the private network connected to the deployed VPC, either via:
+By default, this project will deploy the Load Balancer scheme as [**internet-facing**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme) **(Public load balancer)**, making it accessible from the internet.
+
+If you need to change the load balancer scheme to [**internal**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme), you can modify the `public_load_balancer` parameter in the config.ini file:
+```ini
+[settings]
+public_load_balancer = False
+```
+
+To access an internal load balancer, you will need to be in the private network connected to the deployed VPC, either via:
 * VPC peering
 * VPN
 * AWS Direct Connect
 * Other network connectivity solutions
 
-If you need to change the load balancer scheme to [**internet-facing**](https://docs.aws.amazon.com./elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html#load-balancer-scheme), you can modify the `public_load_balancer` parameter in the config.ini file:
-```ini
-[settings]
-public_load_balancer = True
-```
-⚠️ **Security Warning**: If you change the load balancer to be **internet-facing**, make sure to also define the Authentication Options as per below. Otherwise, the application and all its functionalities will be accessible directly through the Internet without authentication. Proceed with caution and understand the security implications.
+⚠️ **Security Warning**: Since the load balancer is **internet-facing** by default, it's strongly recommended to enable the Authentication Options as per below. Otherwise, the application and all its functionalities will be accessible directly through the Internet without authentication. Proceed with caution and understand the security implications.
 
 ### Authentication Options
 
