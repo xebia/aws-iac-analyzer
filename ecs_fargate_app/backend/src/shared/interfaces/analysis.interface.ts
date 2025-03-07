@@ -27,3 +27,11 @@ export interface WorkloadReview {
   lensAlias: string;
   results: AnalysisResult[];
 }
+
+export interface QuestionGroup {
+  pillar: string;
+  title: string;
+  questionId: string;
+  bestPractices: string[];
+  bestPracticeIds: string[];
+}
