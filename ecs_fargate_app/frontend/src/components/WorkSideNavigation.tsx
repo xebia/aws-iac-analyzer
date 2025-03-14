@@ -36,6 +36,7 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<WorkItem | null>(null);
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const [downloadingSupportingDocId, setDownloadingSupportingDocId] = useState<string | null>(null);
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [isReloading, setIsReloading] = useState(false);
@@ -72,6 +73,32 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
       console.error('Failed to download file:', error);
     } finally {
       setDownloadingFileId(null);
+    }
+  };
+
+  // Handle supporting document download
+  const handleSupportingDocDownload = async (item: WorkItem, event: any) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Keep section expanded without loading results
+    onItemSelect(item, false);
+
+    if (!item.supportingDocumentId || !item.supportingDocumentName) {
+      return;
+    }
+
+    setDownloadingSupportingDocId(item.supportingDocumentId);
+    try {
+      await storageApi.downloadSupportingDocument(
+        item.supportingDocumentId, 
+        item.fileId, 
+        item.supportingDocumentName
+      );
+    } catch (error) {
+      console.error('Failed to download supporting document:', error);
+    } finally {
+      setDownloadingSupportingDocId(null);
     }
   };
 
@@ -198,6 +225,21 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
             />
           )
         },
+        ...(item.supportingDocumentId && item.supportingDocumentAdded ? [{
+          type: 'link' as const,
+          text: 'Download supporting document:',
+          href: `/download-supporting/${item.fileId}/${item.supportingDocumentId}`,
+          key: `download-supporting-${item.fileId}`,
+          info: (
+            <Button
+              iconName="download"
+              ariaLabel="Download supporting document"
+              variant="inline-icon"
+              loading={downloadingSupportingDocId === item.supportingDocumentId}
+              onClick={(e: any) => handleSupportingDocDownload(item, e)}
+            />
+          )
+        }] : []),
         {
           type: 'link' as const,
           text: 'Load results:',

@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DocumentView } from './DocumentView';
-import { SpaceBetween, Container, Button, StatusIndicator, ProgressBar, Tabs, Alert, ExpandableSection } from '@cloudscape-design/components';
+import { SpaceBetween, Container, Button, StatusIndicator, ProgressBar, Tabs, Alert, ExpandableSection, KeyValuePairs } from '@cloudscape-design/components';
 import { FileUpload } from './FileUpload';
+import { SupportingDocumentUpload } from './SupportingDocumentUpload';
 import { WorkloadIdInput } from './WorkloadIdInput';
 import { PillarSelector } from './PillarSelector';
 import { AnalysisResults } from './AnalysisResults';
 import { RiskSummary } from './RiskSummary';
 import { useAnalyzer } from '../hooks/useAnalyzer';
-import { UploadedFile, WellArchitectedPillar, IaCTemplateType, UpdatedDocument, WorkItem, WorkItemResponse, WorkItemContent } from '../types';
+import { UploadedFile, UploadedFiles, WellArchitectedPillar, IaCTemplateType, UpdatedDocument, WorkItem, WorkItemResponse, WorkItemContent, FileUploadMode } from '../types';
 import { analyzerApi } from '../services/api';
 import { storageApi } from '../services/storage';
 import { socketService } from '../services/socket';
@@ -32,13 +33,18 @@ interface Props {
 }
 
 export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNeeded }) => {
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFiles | null>(null);
   const [updatedDocument, setUpdatedDocument] = useState<UpdatedDocument | null>(null);
   const [workloadId, setWorkloadId] = useState<string | null>(null);
   const [activeTabId, setActiveTabId] = useState('analysis');
   const [selectedPillars, setSelectedPillars] = useState(
     DEFAULT_PILLARS.filter(p => p.selected).map(p => p.id)
   );
+
+  const [supportingDocument, setSupportingDocument] = useState<UploadedFile | null>(null);
+  const [supportingDocumentId, setSupportingDocumentId] = useState<string | null>(null);
+  const [supportingDocumentDescription, setSupportingDocumentDescription] = useState<string>('');
+
   const [isDownloading, setIsDownloading] = useState(false);
   const [isImplementing, setIsImplementing] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -53,6 +59,11 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [activeWorkItem, setActiveWorkItem] = useState<WorkItem | null>(null);
   const [currentWorkItemName, setCurrentWorkItemName] = useState<string>('');
+  const [showTokenLimitWarning, setShowTokenLimitWarning] = useState(false);
+  const [tokenCount, setTokenCount] = useState<number | null>(null);
+  const [downloadingOriginalFileId, setDownloadingOriginalFileId] = useState<string | null>(null);
+  const [downloadingSupportingDocId, setDownloadingSupportingDocId] = useState<string | null>(null);
+  const [isSupportingDocUploading, setIsSupportingDocUploading] = useState<boolean>(false);
 
   const {
     analyze,
@@ -94,17 +105,38 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     };
   }, []);
 
+  // Handle supporting document upload
+  const handleSupportingDocumentUploaded = (file: UploadedFile, description: string, fileId: string) => {
+    setSupportingDocument(file);
+    setSupportingDocumentId(fileId);
+    setSupportingDocumentDescription(description);
+
+    // If we already have an uploaded file, update the uploadedFiles object
+    if (uploadedFiles) {
+      setUploadedFiles({
+        ...uploadedFiles,
+        supportingDocument: file,
+        supportingDocumentId: fileId,
+        supportingDocumentDescription: description
+      });
+    }
+  };
+
   const handleAnalyze = async () => {
-    if (!uploadedFile || !activeWorkItem) return;
+    if (!uploadedFiles || !activeWorkItem) return;
 
     try {
       // Refresh side navigation when analysis starts
       onWorkItemsRefreshNeeded?.();
 
+      // Set uploadMode from uploadedFiles to analyze properly
       const result = await analyze(
         activeWorkItem.fileId,
         workloadId,
         selectedPillars,
+        uploadedFiles.mode,
+        supportingDocumentId,
+        supportingDocumentDescription
       );
 
       // Update activeWorkItem with fileId from analysis result, even for partial results
@@ -113,9 +145,14 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
         setActiveWorkItem({
           ...activeWorkItem,
           fileId: result.fileId,
+          supportingDocumentId: supportingDocumentId || undefined,
+          supportingDocumentAdded: Boolean(supportingDocumentId),
+          supportingDocumentDescription: supportingDocumentDescription || undefined,
+          supportingDocumentName: supportingDocument?.name,
+          supportingDocumentType: supportingDocument?.type,
         });
         setCurrentWorkItemName(`${activeWorkItem.fileName}`);
-        if (!activeWorkItem?.fileType.startsWith('image/')) {
+        if (!isImageFile) {
           setUpdatedDocument(null);
         }
       } else if (result.fileId) {
@@ -123,18 +160,28 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
         setActiveWorkItem({
           userId: '', // This will be set by the backend
           fileId: result.fileId,
-          fileName: uploadedFile.name,
-          fileType: uploadedFile.type,
+          fileName: uploadedFiles.singleFile?.name ||
+            uploadedFiles.zipFile?.name ||
+            'Multiple files',
+          fileType: uploadedFiles.singleFile?.type ||
+            uploadedFiles.zipFile?.type ||
+            'application/multiple-files',
           uploadDate: new Date().toISOString(),
           analysisStatus: 'IN_PROGRESS',
           analysisProgress: 0,
           iacGenerationStatus: 'NOT_STARTED',
           iacGenerationProgress: 0,
-          s3Prefix: `${result.fileId}`, // The actual prefix will be managed by backend
-          lastModified: new Date().toISOString()
+          s3Prefix: `${result.fileId}`,
+          lastModified: new Date().toISOString(),
+          uploadMode: uploadedFiles.mode,
+          supportingDocumentId: supportingDocumentId || undefined,
+          supportingDocumentAdded: Boolean(supportingDocumentId),
+          supportingDocumentDescription: supportingDocumentDescription || undefined,
+          supportingDocumentName: supportingDocument?.name,
+          supportingDocumentType: supportingDocument?.type,
         });
-        setCurrentWorkItemName(`${activeWorkItem.fileName}`);
-        if (!activeWorkItem?.fileType.startsWith('image/')) {
+        setCurrentWorkItemName(`${uploadedFiles.singleFile?.name || uploadedFiles.zipFile?.name || 'Multiple files'}`);
+        if (!isImageFile) {
           setUpdatedDocument(null);
         }
       }
@@ -152,43 +199,95 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     await updateWorkload(workloadId);
   };
 
-  const getFileType = (fileName: string, currentType: string | undefined): string => {
-    if (fileName.endsWith('.tf')) return 'application/terraform';
-    if (fileName.endsWith('.yaml') || fileName.endsWith('.yml')) return 'application/yaml';
-    if (fileName.endsWith('.json')) return 'application/json';
-    return currentType || 'undefined';
-  };
+  const handleFileUploaded = (files: UploadedFiles, fileId: string) => {
+    setUploadedFiles({
+      ...files,
+      supportingDocument: supportingDocument || undefined,
+      supportingDocumentId: supportingDocumentId || undefined,
+      supportingDocumentDescription: supportingDocumentDescription || undefined
+    });
 
-  const handleFileUploaded = (file: UploadedFile, fileId: string) => {
-    const processedFile = {
-      ...file,
-      type: getFileType(file.name, file.type)
-    };
+    // Set isImageFile based on file type
+    if (files.mode === FileUploadMode.SINGLE_FILE && files.singleFile) {
+      const isImage = files.singleFile.type.startsWith('image/');
+      setIsImageFile(isImage);
+    } else {
+      // Not an image for ZIP or multiple files
+      setIsImageFile(false);
+    }
 
-    setUploadedFile(processedFile);
-    setIsImageFile(processedFile.type.startsWith('image/'));
     setActiveWorkItem(null);
 
+    // Check if we need to show token limit warning
+    if (files.exceedsTokenLimit) {
+      setShowTokenLimitWarning(true);
+      setTokenCount(files.tokenCount || 0);
+    } else {
+      setShowTokenLimitWarning(false);
+      setTokenCount(null);
+    }
+
     // Store the fileId for later use
+    let fileName = '';
+    let fileType = '';
+
+    if (files.singleFile) {
+      fileName = files.singleFile.name;
+      fileType = files.singleFile.type;
+    } else if (files.zipFile) {
+      fileName = files.zipFile.name;
+      fileType = files.zipFile.type;
+    } else if (files.multipleFiles && files.multipleFiles.length > 0) {
+      fileName = files.multipleFiles.length < 2
+        ? files.multipleFiles.map(f => f.name).join('_')
+        : `${files.multipleFiles[0].name}_and_${files.multipleFiles.length - 1}_more_files`;
+      fileType = 'application/multiple-files';
+    }
+
     setActiveWorkItem({
       userId: '', // This will be set by the backend
       fileId: fileId,
-      fileName: file.name,
-      fileType: processedFile.type,
+      fileName: fileName,
+      fileType: fileType,
       uploadDate: new Date().toISOString(),
       analysisStatus: 'NOT_STARTED',
       analysisProgress: 0,
       iacGenerationStatus: 'NOT_STARTED',
       iacGenerationProgress: 0,
       s3Prefix: `${fileId}`,
-      lastModified: new Date().toISOString()
+      lastModified: new Date().toISOString(),
+      uploadMode: files.mode,
+      exceedsTokenLimit: files.exceedsTokenLimit,
+      tokenCount: files.tokenCount,
     });
+  };
+
+  const handleDownloadSupportingDocument = async (supportingDocId: string, fileName: string) => {
+    try {
+      if (!activeWorkItem?.fileId) {
+        setError('Cannot download supporting document: no active work item');
+        return;
+      }
+
+      setDownloadingSupportingDocId(supportingDocId);
+
+      await storageApi.downloadSupportingDocument(
+        supportingDocId,
+        activeWorkItem.fileId,
+        fileName
+      );
+    } catch (error) {
+      console.error("Failed to download supporting document:", error);
+      setError(error instanceof Error ? error.message : 'Failed to download supporting document');
+    } finally {
+      setDownloadingSupportingDocId(null);
+    }
   };
 
   const handleGenerateReport = async () => {
     const activeWorkloadId = workloadId || createdWorkloadId;
     if (!activeWorkloadId) return;
-    await generateReport(activeWorkloadId, uploadedFile?.name || 'unknown_file');
+    await generateReport(activeWorkloadId, uploadedFiles?.singleFile?.name || 'unknown_file');
   };
 
   const handleRefresh = () => {
@@ -198,7 +297,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   };
 
   const handleGenerateIacDocument = async () => {
-    if (!uploadedFile || !analysisResults || !activeWorkItem) return;
+    if (!uploadedFiles?.singleFile || !analysisResults || !activeWorkItem) return;
 
     try {
       // Refresh side navigation when IaC generation starts
@@ -226,7 +325,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
       if (result.content) {
         setUpdatedDocument({
           content: result.content,
-          name: uploadedFile.name,
+          name: uploadedFiles.singleFile.name,
           templateType: selectedIaCType
         });
         setDocumentViewTabTitle('IaC Document (Updated)');
@@ -247,15 +346,30 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   const handleDownloadRecommendations = async () => {
     try {
       setIsDownloading(true);
-      await downloadRecommendations(uploadedFile?.name || 'unknown_file');
+      await downloadRecommendations(
+        uploadedFiles?.singleFile?.name ||
+        uploadedFiles?.zipFile?.name ||
+        'analysis_results'
+      );
     } finally {
       setIsDownloading(false);
     }
   };
 
+  const handleOriginalFileDownload = async (fileId: string, fileName: string) => {
+    setDownloadingOriginalFileId(fileId);
+    try {
+      await storageApi.downloadOriginalContent(fileId, fileName);
+    } catch (error) {
+      console.error('Failed to download file:', error);
+    } finally {
+      setDownloadingOriginalFileId(null);
+    }
+  };
+
   const acceptedFileTypes = [
     '.yaml', '.yml', '.json', '.tf',  // IaC files
-    '.png', '.jpg', '.jpeg'           // Image files
+    '.png', '.jpg', '.jpeg', '.zip'   // Image and zip files
   ];
 
   const formatDateTime = (dateStr: string) => {
@@ -287,8 +401,20 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
         return;
       }
 
-      if (workItem?.fileType.startsWith('image/')) {
+      // Set image file flag
+      if (workItem.uploadMode === FileUploadMode.SINGLE_FILE && workItem.fileType?.startsWith('image/')) {
         setIsImageFile(true);
+      } else {
+        setIsImageFile(false);
+      }
+
+      // Show token warning if applicable
+      if (workItem.exceedsTokenLimit) {
+        setShowTokenLimitWarning(true);
+        setTokenCount(workItem.tokenCount || 0);
+      } else {
+        setShowTokenLimitWarning(false);
+        setTokenCount(null);
       }
 
       if (workItem?.iacGenerationStatus === 'NOT_STARTED' || workItem?.iacGenerationStatus === 'FAILED') {
@@ -299,7 +425,26 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
         }
       }
 
-      // Set the uploaded file info
+      // Check if there's a supporting document
+      if (workItem.supportingDocumentAdded && workItem.supportingDocumentId) {
+        setSupportingDocumentId(workItem.supportingDocumentId);
+        setSupportingDocumentDescription(workItem.supportingDocumentDescription || '');
+        if (workItem.supportingDocumentName && workItem.supportingDocumentType) {
+          setSupportingDocument({
+            name: workItem.supportingDocumentName,
+            content: '', // Not loaded, would be loaded on demand
+            type: workItem.supportingDocumentType,
+            size: 0 // Size unknown, not critical for display
+          });
+        }
+      } else {
+        // Reset supporting document state if none exists
+        setSupportingDocument(null);
+        setSupportingDocumentId(null);
+        setSupportingDocumentDescription('');
+      }
+
+      // Create appropriate uploadedFiles object based on workItem.uploadMode
       if (result.content) {
         let fileContent: string;
 
@@ -308,7 +453,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
           fileContent = result.content;
         } else {
           const contentObj = result.content as WorkItemContent;
-          if (workItem.fileType.startsWith('image/')) {
+          if (workItem.uploadMode === FileUploadMode.SINGLE_FILE && workItem.fileType.startsWith('image/')) {
             // For images, ensure proper base64 format
             fileContent = contentObj.data.startsWith('data:')
               ? contentObj.data
@@ -319,12 +464,38 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
           }
         }
 
-        setUploadedFile({
-          name: workItem.fileName,
-          content: fileContent,
-          type: workItem.fileType,
-          size: new Blob([fileContent]).size,
-        });
+        let files: UploadedFiles = {
+          mode: workItem.uploadMode || FileUploadMode.SINGLE_FILE,
+        };
+
+        if (workItem.uploadMode === FileUploadMode.SINGLE_FILE) {
+          files.singleFile = {
+            name: workItem.fileName,
+            content: fileContent,
+            type: workItem.fileType,
+            size: new Blob([fileContent]).size,
+          };
+        } else if (workItem.uploadMode === FileUploadMode.ZIP_FILE) {
+          files.zipFile = {
+            name: workItem.fileName,
+            content: fileContent,
+            type: workItem.fileType,
+            size: new Blob([fileContent]).size,
+          };
+          files.exceedsTokenLimit = workItem.exceedsTokenLimit;
+          files.tokenCount = workItem.tokenCount;
+        } else {
+          files.multipleFiles = [{
+            name: workItem.fileName,
+            content: fileContent,
+            type: workItem.fileType,
+            size: new Blob([fileContent]).size,
+          }];
+          files.exceedsTokenLimit = workItem.exceedsTokenLimit;
+          files.tokenCount = workItem.tokenCount;
+        }
+
+        setUploadedFiles(files);
       }
 
       // Load analysis results if completed
@@ -360,7 +531,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to load work item');
     }
-  }, [setActiveWorkItem, setError, setUploadedFile, setAnalysisResults, setActiveTabId, setUpdatedDocument, selectedIaCType]);
+  }, [setActiveWorkItem, setError, setUploadedFiles, setAnalysisResults, setActiveTabId, setUpdatedDocument, selectedIaCType]);
 
   // Effect to listen for workItemSelected events
   useEffect(() => {
@@ -420,6 +591,13 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             headerText="Optional settings"
           >
             <SpaceBetween size="l">
+              <SupportingDocumentUpload
+                key="supporting-document-upload"
+                onDocumentUploaded={handleSupportingDocumentUploaded}
+                onUploadStatusChange={setIsSupportingDocUploading}
+                disabled={!uploadedFiles || isAnalyzing || isUpdating}
+                activeWorkItemId={activeWorkItem?.fileId}
+              />
               <WorkloadIdInput
                 key="workload-id-input"
                 value={workloadId || ''}
@@ -436,8 +614,6 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             </SpaceBetween>
           </ExpandableSection>
 
-
-
           {error && (
             <Alert
               key="error-alert"
@@ -450,13 +626,26 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             </Alert>
           )}
 
+          {showTokenLimitWarning && tokenCount && (
+            <Alert
+              key="token-limit-alert"
+              type="warning"
+              dismissible
+              onDismiss={() => setShowTokenLimitWarning(false)}
+              header="Token Limit Warning"
+            >
+              Your project contains approximately {tokenCount.toLocaleString()} tokens, which exceeds the recommended limit of 200,000 tokens.
+              The analysis may lose context due to the large file size. Consider breaking your project into smaller pieces for better results.
+            </Alert>
+          )}
+
           <SpaceBetween key="action-buttons" size="xs" direction="horizontal">
             <Button
               key="analyze-button"
               variant="primary"
               onClick={handleAnalyze}
               loading={isAnalyzing}
-              disabled={!uploadedFile || selectedPillars.length === 0}
+              disabled={!uploadedFiles || selectedPillars.length === 0 || isSupportingDocUploading}
               iconName="gen-ai"
             >
               Start Review
@@ -578,13 +767,52 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
       )}
 
       {currentWorkItemName && (
-        <Alert
-          key="main-current-work-item-alert"
-          type="info"
-          statusIconAriaLabel="Info"
-        >
-          Current work item: "{currentWorkItemName}"
-        </Alert>
+        <Container>
+          <KeyValuePairs
+            columns={3}
+            items={[
+              {
+                label: "Current Work Item",
+                value: (
+                  <SpaceBetween direction="horizontal" size="xs" alignItems="center">
+                    {currentWorkItemName}
+                    {activeWorkItem && (
+                      <Button
+                        iconName="download"
+                        ariaLabel="Download original file"
+                        variant="inline-icon"
+                        loading={downloadingOriginalFileId === activeWorkItem.fileId}
+                        onClick={() => handleOriginalFileDownload(activeWorkItem.fileId, currentWorkItemName)}
+                      />
+                    )}
+                  </SpaceBetween>
+                )
+              },
+              {
+                label: "Supporting Document",
+                value: supportingDocument && supportingDocumentId ? (
+                  <SpaceBetween direction="horizontal" size="xs" alignItems="center">
+                    {supportingDocument.name}
+                    {activeWorkItem && (
+                      <Button
+                        variant="inline-icon"
+                        iconName="download"
+                        ariaLabel={`Download ${supportingDocument.name}`}
+                        loading={downloadingSupportingDocId === supportingDocumentId}
+                        onClick={() => handleDownloadSupportingDocument(supportingDocumentId, supportingDocument.name)}
+                      />
+                    )}
+                  </SpaceBetween>
+                ) : "N/A"
+              },
+              {
+                label: "Supporting Document Description",
+                value: (supportingDocument && supportingDocumentId && supportingDocumentDescription) ?
+                  supportingDocumentDescription : "N/A"
+              }
+            ]}
+          />
+        </Container>
       )}
 
       {analysisResults && (
@@ -612,11 +840,11 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                     isImplementing={isImplementing}
                     isLoadingDetails={isLoadingDetails}
                     setIsLoadingDetails={setIsLoadingDetails}
-                    uploadedFileType={uploadedFile?.type || ''}
+                    uploadedFileType={uploadedFiles?.singleFile?.type || ''}
                     selectedIaCType={selectedIaCType}
                     setError={setError}
                     fileId={activeWorkItem?.fileId || ''}
-                    fileName={uploadedFile?.name || 'unknown_file'}
+                    fileName={uploadedFiles?.singleFile?.name || uploadedFiles?.zipFile?.name || 'unknown_file'}
                   />
                 </div>
               )

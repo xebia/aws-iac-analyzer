@@ -193,5 +193,26 @@ export const helpContent = {
                 </Box>
             </SpaceBetween>
         )
+    },
+    supportingDocument: {
+        header: 'Supporting Document Upload',
+        body: (
+            <SpaceBetween size="xxs">
+                <Box variant="p">
+                    Enhance your analysis by uploading a supporting document that provides additional context:
+                </Box>
+                <ul>
+                    <li><strong>Supported Formats:</strong> PDF documents (.pdf), Plain text files (.txt), Images (.png, .jpg, .jpeg)</li>
+                    <li><strong>Maximum Size:</strong> 4.5MB</li>
+                    <li><strong>Description:</strong> A brief description of the document is required to help the analyzer understand its content</li>
+                </ul>
+                <Box variant="p">
+                    The supporting document will be used alongside your IaC template or architecture diagram to provide more context during analysis, potentially resulting in more accurate recommendations.
+                </Box>
+                <Box variant="p">
+                    <strong>Note:</strong> Only one supporting document (the most recently uploaded) will be used for the analysis.
+                </Box>
+            </SpaceBetween>
+        )
     }
 };

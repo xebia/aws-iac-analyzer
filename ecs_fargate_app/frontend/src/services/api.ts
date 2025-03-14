@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { AnalysisResult, RiskSummary, IaCTemplateType } from '../types';
+import { AnalysisResult, RiskSummary, IaCTemplateType, FileUploadMode } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -26,13 +26,19 @@ export const analyzerApi = {
   async analyze(
     fileId: string,
     workloadId: string,
-    selectedPillars: string[]
+    selectedPillars: string[],
+    uploadMode?: FileUploadMode,
+    supportingDocumentId?: string,
+    supportingDocumentDescription?: string
   ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string; fileId?: string }> {
     try {
       const response = await api.post('/analyzer/analyze', {
         fileId,
         workloadId,
         selectedPillars,
+        uploadMode,
+        supportingDocumentId,
+        supportingDocumentDescription,
       });
       return response.data;
     } catch (error) {
