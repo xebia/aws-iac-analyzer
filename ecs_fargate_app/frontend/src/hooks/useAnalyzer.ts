@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { analyzerApi } from '../services/api';
 import { socketService } from '../services/socket';
-import { AnalysisResult, RiskSummary } from '../types';
+import { AnalysisResult, RiskSummary, FileUploadMode } from '../types';
 
 export const useAnalyzer = () => {
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[] | null>(null);
@@ -40,6 +40,9 @@ export const useAnalyzer = () => {
     fileId: string,
     workloadId: string | null,
     selectedPillars: string[],
+    uploadMode?: FileUploadMode,
+    supportingDocumentId?: string | null,
+    supportingDocumentDescription?: string | null
   ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string; fileId?: string }> => {
     setIsAnalyzing(true);
     setError(null);
@@ -54,11 +57,18 @@ export const useAnalyzer = () => {
         tempWorkloadId = await analyzerApi.createWorkload(true);
         workloadId = tempWorkloadId;
       }
+
+      // Convert null values to undefined for the API call
+      const supportingDocId = supportingDocumentId || undefined;
+      const supportingDocDesc = supportingDocumentDescription || undefined;
   
       const { results, isCancelled, error: analysisError, fileId: resultFileId } = await analyzerApi.analyze(
         fileId,
         workloadId,
-        selectedPillars
+        selectedPillars,
+        uploadMode,
+        supportingDocId,
+        supportingDocDesc
       );
   
       setAnalysisResults(results);

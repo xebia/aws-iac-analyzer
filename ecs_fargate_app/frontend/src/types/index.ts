@@ -43,6 +43,57 @@ export interface UploadedFile {
   size: number;
 }
 
+export interface WorkItemUpdate {
+  analysisStatus?: WorkItemStatus;
+  analysisProgress?: number;
+  analysisError?: string;
+  analysisPartialResults?: boolean;
+  iacGenerationStatus?: WorkItemStatus;
+  iacGenerationProgress?: number;
+  iacGenerationError?: string;
+  iacGeneratedFileType?: string;
+  iacPartialResults?: boolean;
+  lastModified?: string;
+  workloadId?: string;
+  uploadMode?: FileUploadMode;
+  exceedsTokenLimit?: boolean;
+  tokenCount?: number;
+  
+  // Supporting document properties
+  supportingDocumentId?: string;
+  supportingDocumentAdded?: boolean;
+  supportingDocumentDescription?: string;
+  supportingDocumentName?: string;
+  supportingDocumentType?: string;
+}
+
+export interface UploadedFiles {
+  // Single file case
+  singleFile?: UploadedFile;
+  // Multi-file case
+  multipleFiles?: UploadedFile[];
+  // ZIP file case
+  zipFile?: UploadedFile;
+  // Upload mode
+  mode: FileUploadMode;
+  // If tokens exceed limit (for ZIP and multiple files)
+  exceedsTokenLimit?: boolean;
+  // Estimated token count (for ZIP and multiple files)
+  tokenCount?: number;
+
+  // Supporting document
+  supportingDocument?: UploadedFile;
+  supportingDocumentId?: string;
+  supportingDocumentDescription?: string;
+}
+
+// Upload modes
+export enum FileUploadMode {
+  SINGLE_FILE = 'single_file',
+  MULTIPLE_FILES = 'multiple_files',
+  ZIP_FILE = 'zip_file'
+}
+
 export enum FileType {
   IAC = 'iac',
   IMAGE = 'image'
@@ -128,6 +179,18 @@ export interface WorkItem {
   lastModified: string;    // Last activity timestamp
   tags?: string[];         // Optional user tags
   workloadId?: string;     // Associated WA Tool workload ID
+
+  // Properties for multiple files
+  uploadMode?: FileUploadMode;
+  exceedsTokenLimit?: boolean;
+  tokenCount?: number;
+
+  // Supporting document properties
+  supportingDocumentId?: string;     // ID of the supporting document
+  supportingDocumentAdded?: boolean; // Whether a supporting document was added
+  supportingDocumentDescription?: string; // Description of the supporting document
+  supportingDocumentName?: string;  // Name of the supporting document
+  supportingDocumentType?: string;  // MIME type of the supporting document
 }
 
 export type WorkItemStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'PARTIAL';

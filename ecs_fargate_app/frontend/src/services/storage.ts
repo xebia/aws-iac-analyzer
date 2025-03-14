@@ -9,6 +9,72 @@ const api = axios.create({
 });
 
 export const storageApi = {
+  // Supporting documents upload
+  async uploadSupportingDocument(formData: FormData): Promise<{ fileId: string }> {
+    try {
+      const response = await api.post('/work-items/upload-supporting', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to upload supporting document'
+      );
+    }
+  },
+
+  // Supporting document download
+  async downloadSupportingDocument(fileId: string, mainFileId: string, fileName: string): Promise<void> {
+    try {
+      // Updated endpoint to include main file ID
+      const response = await api.get(`/work-items/${mainFileId}/supporting-document/${fileId}`, {
+        responseType: 'arraybuffer'
+      });
+
+      // Get the content type from headers
+      const contentType = response.headers['content-type'] || 'application/octet-stream';
+
+      // Create blob from array buffer
+      const blob = new Blob([response.data], { type: contentType });
+      const url = window.URL.createObjectURL(blob);
+
+      // Trigger download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download error:', error);
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to download supporting document'
+      );
+    }
+  },
+
+  async uploadFiles(formData: FormData): Promise<{ fileId: string; tokenCount?: number; exceedsTokenLimit?: boolean }> {
+    try {
+      const response = await api.post('/work-items/upload-files', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+  
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to upload files'
+      );
+    }
+  },
+
   async listWorkItems(): Promise<WorkItem[]> {
     try {
       const response = await api.get('/work-items');

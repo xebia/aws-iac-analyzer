@@ -69,7 +69,10 @@ export class AnalyzerController {
         analyzeRequest.fileId,
         analyzeRequest.workloadId,
         analyzeRequest.selectedPillars,
+        analyzeRequest.uploadMode,
         userId,
+        analyzeRequest.supportingDocumentId,
+        analyzeRequest.supportingDocumentDescription,
       );
     } catch (error) {
       this.logger.error('Analysis failed:', error);

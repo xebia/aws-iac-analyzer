@@ -1,3 +1,5 @@
+import { FileUploadMode } from "../dto/analysis.dto";
+
 export type WorkItemStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'PARTIAL';
 
 export interface WorkItem {
@@ -30,6 +32,18 @@ export interface WorkItem {
   lastModified: string;    // Last activity timestamp
   tags?: string[];         // Optional user tags
   workloadId?: string;     // Associated WA Tool workload ID
+
+  // Properties for multiple files support
+  uploadMode?: FileUploadMode;
+  exceedsTokenLimit?: boolean;
+  tokenCount?: number;
+
+  // Supporting document properties
+  supportingDocumentId?: string;     // ID of the supporting document
+  supportingDocumentAdded?: boolean; // Whether a supporting document was added
+  supportingDocumentDescription?: string; // Description of the supporting document
+  supportingDocumentName?: string;  // Name of the supporting document
+  supportingDocumentType?: string;  // MIME type of the supporting document
 }
 
 export interface WorkItemUpdate {
@@ -44,6 +58,16 @@ export interface WorkItemUpdate {
   iacPartialResults?: boolean;
   lastModified?: string;
   workloadId?: string;
+  uploadMode?: FileUploadMode;
+  exceedsTokenLimit?: boolean;
+  tokenCount?: number;
+
+  // Supporting document properties
+  supportingDocumentId?: string;
+  supportingDocumentAdded?: boolean;
+  supportingDocumentDescription?: string;
+  supportingDocumentName?: string;
+  supportingDocumentType?: string;
 }
 
 export interface S3Locations {
@@ -51,6 +75,8 @@ export interface S3Locations {
   originalContent: string;
   analysisResults: string;
   iacDocument: string;
+  packedContent?: string;
+  supportingDocument?: string;
 }
 
 export interface StorageConfig {

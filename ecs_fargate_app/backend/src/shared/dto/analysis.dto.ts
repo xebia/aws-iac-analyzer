@@ -1,4 +1,10 @@
-import { IsString, IsArray, IsNotEmpty } from 'class-validator';
+import { IsString, IsArray, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
+
+export enum FileUploadMode {
+  SINGLE_FILE = 'single_file',
+  MULTIPLE_FILES = 'multiple_files',
+  ZIP_FILE = 'zip_file'
+}
 
 export class AnalyzeRequestDto {
   @IsString()
@@ -13,7 +19,19 @@ export class AnalyzeRequestDto {
   @IsNotEmpty()
   fileId: string;
 
+  @IsEnum(FileUploadMode)
+  @IsOptional()
+  uploadMode?: FileUploadMode = FileUploadMode.SINGLE_FILE;
+
   templateType?: IaCTemplateType;
+
+  @IsString()
+  @IsOptional()
+  supportingDocumentId?: string;
+  
+  @IsString()
+  @IsOptional()
+  supportingDocumentDescription?: string;
 }
 
 export class UpdateWorkloadDto {
@@ -45,4 +63,20 @@ export enum IaCTemplateType {
   CLOUDFORMATION_YAML = 'CloudFormation (.yaml) template',
   CLOUDFORMATION_JSON = 'CloudFormation (.json) template',
   TERRAFORM = 'Terraform (.tf) document'
+}
+
+export class MultipleFilesUploadDto {
+  @IsString()
+  @IsNotEmpty()
+  userId: string;
+
+  @IsArray()
+  files: Array<{
+    filename: string;
+    buffer: Buffer;
+    mimetype: string;
+  }>;
+
+  @IsEnum(FileUploadMode)
+  mode: FileUploadMode;
 }
