@@ -311,7 +311,7 @@ export class StorageService {
       // Create combined filename
       const combinedFilename = files.length < 2 
         ? files.map(f => f.filename).join('_')
-        : `${files[0].filename}_and_${files.length - 1}_more_files`;
+        : `${files[0].filename}_and_${files.length - 1}_more_files.zip`;
 
       // Create work item
       const workItem: WorkItem = {

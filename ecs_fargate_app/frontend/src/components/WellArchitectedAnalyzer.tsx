@@ -240,7 +240,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     } else if (files.multipleFiles && files.multipleFiles.length > 0) {
       fileName = files.multipleFiles.length < 2
         ? files.multipleFiles.map(f => f.name).join('_')
-        : `${files.multipleFiles[0].name}_and_${files.multipleFiles.length - 1}_more_files`;
+        : `${files.multipleFiles[0].name}_and_${files.multipleFiles.length - 1}_more_files.zip`;
       fileType = 'application/multiple-files';
     }
 
