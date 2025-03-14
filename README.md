@@ -11,17 +11,6 @@ It features a modern web application built with React and AWS Cloudscape Design 
 
 This tool provides users with insights into how well their infrastructure code aligns with or deviates from established AWS best practices, offering suggestions for improving cloud architecture designs. Users can also upload supporting documents to provide additional context for more accurate analysis results. For architecture diagrams, it can even generate corresponding IaC templates following AWS best practices.
 
-The project deploys resources running on the following AWS services:
-* Amazon Virtual Private Cloud (VPC)
-* Application Load Balancer
-* Amazon Elastic Container Service (ECS)
-* AWS Fargate
-* Amazon S3
-* Amazon DynamoDB
-* AWS Lambda
-* Amazon Bedrock
-* Amazon Cognito (Optional)
-
 ## Features
 
 - Upload and analyze Infrastructure as Code templates:
