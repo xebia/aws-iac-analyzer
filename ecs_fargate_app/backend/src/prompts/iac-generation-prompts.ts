@@ -30,7 +30,7 @@ export function buildIacGenerationPrompt(
       prompt += `
       
     <supporting_document>
-    Refer to the attached supporting document "${supportingDocName}" for additional context when generating the IaC template. 
+    Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when generating the IaC template. 
     The supporting document is about: ${supportingDocDescription}
     </supporting_document>`;
     }

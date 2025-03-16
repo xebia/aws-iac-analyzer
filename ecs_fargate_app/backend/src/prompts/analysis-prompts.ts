@@ -37,7 +37,7 @@ export function buildImagePrompt(
     prompt += `
   
   <supporting_document>
-  Refer to the attached supporting document "${supportingDocName}" for additional context when completing the review. 
+  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when completing the review. 
   The supporting document is about: ${supportingDocDescription}
   </supporting_document>
   `;
@@ -81,7 +81,7 @@ export function buildPrompt(
     prompt += `
   
   <supporting_document>
-  Refer to the attached supporting document "${supportingDocName}" for additional context when completing the review. 
+  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when completing the review. 
   The supporting document is about: ${supportingDocDescription}
   </supporting_document>
   `;
@@ -125,7 +125,7 @@ export function buildProjectPrompt(
     prompt += `
   
   <supporting_document>
-  Refer to the attached supporting document "${supportingDocName}" for additional context when completing the review. 
+  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when completing the review. 
   The supporting document is about: ${supportingDocDescription}
   </supporting_document>
   `;

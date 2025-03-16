@@ -185,7 +185,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         label={
           <>
             <Header variant="h3">
-              1. Upload your IaC document or architecture diagram image <HelpButton contentId="fileUpload" />
+              1. Upload your IaC documents or architecture diagram image <HelpButton contentId="fileUpload" />
             </Header>
           </>
         }
@@ -224,7 +224,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           <CloudscapeFileUpload
             onChange={({ detail }) => handleFileChange(detail.value)}
             value={value}
-            constraintText={`Supported file types: ${getAcceptedTypesForMode().join(' or ')}`}
             accept={getAcceptedTypesForMode().join(',')}
             i18nStrings={{
               uploadButtonText: () => isUploading ? 'Uploading...' : 'Choose files',

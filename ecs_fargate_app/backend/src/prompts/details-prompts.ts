@@ -19,9 +19,9 @@ export function buildDetailsPrompt(
     ${JSON.stringify([item], null, 2)}
     </bp_recommendation_analysis>
     
-    <iac_document>
+    <iac_document_or_project>
     ${fileContent}
-    </iac_document>
+    </iac_document_or_project>
     ${previousContent ? `\nPreviously generated content:\n${previousContent}` : ''}
   `;
 
@@ -30,7 +30,7 @@ export function buildDetailsPrompt(
     prompt += `
     
     <supporting_document>
-    Refer to the attached supporting document "${supportingDocName}" for additional context when providing detailed analysis. 
+    Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when providing detailed analysis. 
     The supporting document is about: ${supportingDocDescription}
     </supporting_document>
     `;
@@ -61,7 +61,7 @@ export function buildImageDetailsPrompt(
     prompt += `
   
   <supporting_document>
-  Refer to the attached supporting document "${supportingDocName}" for additional context when providing detailed analysis. 
+  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when providing detailed analysis. 
   The supporting document is about: ${supportingDocDescription}
   </supporting_document>
   `;

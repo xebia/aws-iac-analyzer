@@ -369,7 +369,8 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
 
   const acceptedFileTypes = [
     '.yaml', '.yml', '.json', '.tf',  // IaC files
-    '.png', '.jpg', '.jpeg', '.zip'   // Image and zip files
+    '.png', '.jpg', '.jpeg', '.zip',   // Image and zip files
+    '.ts', '.py', '.go', '.java', '.cs'   // CDK supported programming languages files
   ];
 
   const formatDateTime = (dateStr: string) => {

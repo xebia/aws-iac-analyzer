@@ -59,7 +59,7 @@ For your reference, below is an example of how the JSON-formatted response shoul
 }
 
 /**
- * Generates a system prompt for analyzing IaC templates (CloudFormation, Terraform)
+ * Generates a system prompt for analyzing IaC templates (CloudFormation, Terraform, CDK)
  * @param fileContent The content of the template file
  * @param question The question group containing best practices to evaluate
  * @returns A system prompt for IaC template analysis
@@ -70,10 +70,10 @@ export function buildSystemPrompt(fileContent: string, question: QuestionGroup):
     return `
     You are an AWS Cloud Solutions Architect who specializes in reviewing solution architecture documents against the AWS Well-Architected Framework, using a process called the Well-Architected Framework Review (WAFR).
     The WAFR process consists of evaluating the provided solution architecture document against the 6 pillars of the Well-Architected Framework, namely - Operational Excellence Pillar, Security Pillar, Reliability Pillar, Performance Efficiency Pillar, Cost Optimization Pillar, and Sustainability Pillar - by asking fixed questions for each pillar.
-    The content of a CloudFormation or Terraform template document is provided below in the "uploaded_template_document" section. Follow the instructions listed under "instructions" section below. 
+    The content of a CloudFormation, Terraform or AWS Cloud Development Kit (AWS CDK) template document is provided below in the "uploaded_template_document" section. Follow the instructions listed under "instructions" section below. 
     
     <instructions>
-    1) In the "best_practices_json" section, you are provided with the name of the ${numberOfBestPractices} Best Practices related to the questions "${question.title}" of the Well-Architected Framework. For each Best Practice, determine if it is applied or not in the given CloudFormation or Terraform template document.
+    1) In the "best_practices_json" section, you are provided with the name of the ${numberOfBestPractices} Best Practices related to the questions "${question.title}" of the Well-Architected Framework. For each Best Practice, determine if it is applied or not in the given CloudFormation, Terraform or AWS CDK template document.
     2) For each of the ${numberOfBestPractices} best practices listed in the "best_practices_json" section, create your respond in the following EXACT JSON format only:
     {
         "bestPractices": [
@@ -132,7 +132,7 @@ export function buildProjectSystemPrompt(projectContent: string, question: Quest
     return `
     You are an AWS Cloud Solutions Architect who specializes in reviewing solution architecture documents against the AWS Well-Architected Framework, using a process called the Well-Architected Framework Review (WAFR).
     The WAFR process consists of evaluating the provided solution architecture document against the 6 pillars of the Well-Architected Framework, namely - Operational Excellence Pillar, Security Pillar, Reliability Pillar, Performance Efficiency Pillar, Cost Optimization Pillar, and Sustainability Pillar - by asking fixed questions for each pillar.
-    A complete project containing multiple Infrastructure as Code (IaC) files is provided below in the "uploaded_project" section. The project could contain multiple CloudFormation or Terraform files that together define the complete infrastructure. Follow the instructions listed under "instructions" section below.
+    A complete project containing multiple Infrastructure as Code (IaC) files is provided below in the "uploaded_project" section. The project could contain multiple CloudFormation, Terraform or AWS Cloud Development Kit (AWS CDK) files that together define the complete infrastructure or application. Follow the instructions listed under "instructions" section below.
     
     <instructions>
     1) In the "best_practices_json" section, you are provided with the name of the ${numberOfBestPractices} Best Practices related to the questions "${question.title}" of the Well-Architected Framework. For each Best Practice, determine if it is applied or not in the given project.
@@ -188,11 +188,15 @@ export function buildProjectSystemPrompt(projectContent: string, question: Quest
  * @returns A system prompt for detailed analysis
  */
 export function buildDetailsSystemPrompt(): string {
-    return `You are an AWS Cloud Solutions Architect who specializes in reviewing solution architecture documents against the AWS Well-Architected Framework. Your answer should be formatted in Markdown.
+    return `You are an AWS Cloud Solutions Architect who specializes in reviewing solution architectures and Infrastructure As Code (IaC) documents against the AWS Well-Architected Framework. Your answer should be formatted in Markdown.
+
+      In the <iac_document_or_project> section, you are provided with the content of IaC document(s) or complete IaC project. First, make sure you review in detail the content of the IaC document(s) or project provided in the <iac_document_or_project> section.
+
+      In the <bp_recommendation_analysis> section you are provided with a summary analysis in relation to the alignment of the <iac_document_or_project> document(s) or project with a particular best practice.
       
       For the best practice provided in the <bp_recommendation_analysis> section:
-      1. Provide detailed implementation guidance
-      2. Include CloudFormation or Terraform template modification examples based on the document in <iac_document> section. Use the same format as the <iac_document> document, for example, if the <iac_document> document is CloudFormation in YAML format then provide examples as YAML, if it is in JSON, provide examples in JSON and if it is a Terraform document, use Terraform language, etc.
+      1. Provide detailed implementation guidance for this best practice and in alignment with the document or project reviewed.
+      2. Include CloudFormation, Terraform or AWS Cloud Development Kit (AWS CDK) document modification examples based on the IaC document or project in the <iac_document_or_project> section. Use the same format as the <iac_document_or_project> content. For example, if the <iac_document_or_project> section contains a CloudFormation in YAML format then provide examples as YAML, if it is in JSON, provide examples in JSON, if it is a Terraform document, use Terraform language, etc. Also, if the section <iac_document_or_project> contains multiple files, make sure to reference which file you are suggesting the modifications for (e.g. adding "File: 'network/subnets.tf'" before the document modifications suggested).
       3. Include risks of not implementing the best practice
       4. Provide specific AWS services and features recommendations
       5. If you have completed your detailed analysis, add the marker "<end_of_details_generation>" at the very end
@@ -203,9 +207,9 @@ export function buildDetailsSystemPrompt(): string {
       ## Implementation Guidance
       [Your guidance here]
       ## Template Modifications
-      [Your examples here]
-      ## Risks and Recommendations
-      [Your analysis here]`;
+      [Your suggested modifications here]
+      ## Risks
+      [Analysis of risks if not implemented]`;
 }
 
 /**
@@ -214,10 +218,18 @@ export function buildDetailsSystemPrompt(): string {
  * @returns A system prompt for IaC template generation
  */
 export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType): string {
+
+    // Determine if CDK
+    const isCdkTemplate = templateType.includes('AWS CDK');
+    const language = isCdkTemplate ? templateType.split('-')[1].trim().split(' ')[0] : null;
+
     return `You are an AWS Cloud Solutions Architect who specializes in creating Infrastructure as Code (IaC) templates. 
       An architecture diagram has been provided along with AWS Well-Architected Framework recommendations for your reference.
 
-      Generate a ${templateType} that implements this architecture following AWS best practices. Follow the instructions below when generating the template:
+      ${isCdkTemplate 
+        ? `Generate AWS CDK code in ${language} that implements this architecture following AWS best practices.` 
+        : `Generate a ${templateType} that implements this architecture following AWS best practices.`
+      } Follow the instructions below when generating the template:
 
       <instructions>
       1. If the template you are going to generate is too large, split the template into multiple parts, each part starting with "# Section {number} - {description}.
@@ -225,9 +237,12 @@ export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType): s
       3. If you need to provide with more parts or sections for the template, end your response with "<message_truncated>".
       4. Each of your answers have at least 800 words, unless you are providing a response with the last part of a template.
       5. Do not repeat any section or part already provided.
+      ${isCdkTemplate ? `6. Make sure to follow best practices for AWS CDK development in ${language}.
+      7. Include necessary imports and dependencies in the code.
+      8. Structure the code according to standard ${language} conventions for AWS CDK projects.` : ''}
       </instructions>
       
-      For your reference, after you complete providing all parts of the template, all template parts/sections you provided will be concatenated into a single ${templateType}.`;
+      For your reference, after you complete providing all parts of the template, all template parts/sections you provided will be concatenated into a single ${templateType} file.`;
 }
 
 /**
@@ -236,11 +251,24 @@ export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType): s
  * @returns A system prompt for architecture diagram detailed analysis
  */
 export function buildImageDetailsSystemPrompt(templateType: IaCTemplateType): string {
+
+    // Determine if CDK
+    const isCdkTemplate = templateType.includes('AWS CDK');
+    const language = isCdkTemplate ? templateType.split('-')[1].trim().split(' ')[0] : null;
+    
+    const templateDescription = isCdkTemplate 
+        ? `AWS CDK ${language} code examples` 
+        : `${templateType} examples`;
+
     return `You are an AWS Cloud Solutions Architect who specializes in reviewing architecture diagrams against the AWS Well-Architected Framework. Your answer should be formatted in Markdown.
+
+      You are provided attached with architecture diagram image. First, make sure you review in detail architecture diagram.
+
+      In the <bp_recommendation_analysis> section you are provided with a summary analysis in relation to the alignment of the attached architecture diagram with a particular best practice.
 
       For the best practice provided in the <bp_recommendation_analysis> section:
       1. Provide detailed implementation guidance
-      2. Include ${templateType} examples
+      2. Include ${templateDescription}
       3. Include risks of not implementing the best practice
       4. Provide specific AWS services and features recommendations
       5. If you have completed your detailed analysis, add the marker "<end_of_details_generation>" at the very end
@@ -252,8 +280,10 @@ export function buildImageDetailsSystemPrompt(templateType: IaCTemplateType): st
       [Detailed guidance based on the diagram]
       ## Architecture Modifications
       [Specific changes needed in the architecture]
-      ## Risks and Recommendations
-      [Analysis of risks and detailed recommendations including ${templateType} examples]
+      ## Template examples
+      [${templateDescription}]
+      ## Risks
+      [Analysis of risks if not implemented]
   
       If you have completed your analysis, add "<end_of_details_generation>"
       If you have more details to provide, end with "<details_truncated>"`;

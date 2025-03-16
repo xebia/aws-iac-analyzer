@@ -11,15 +11,16 @@ export const helpContent = {
 
                 <Box variant="h4">Key Features</Box>
                 <ul>
-                    <li><strong>IaC Analysis:</strong> Upload CloudFormation (YAML/JSON) or Terraform templates for automated analysis</li>
+                    <li><strong>IaC Analysis:</strong> Upload CloudFormation (YAML/JSON), Terraform or AWS CDK templates for automated analysis</li>
                     <li><strong>Architecture Review:</strong> Upload architecture diagrams (PNG/JPG) and get IaC recommendations</li>
                     <li><strong>Well-Architected Integration:</strong> Directly update your AWS Well-Architected Tool workload</li>
                     <li><strong>AI-Powered Analysis:</strong> Get detailed recommendations using AWS Bedrock</li>
                 </ul>
                 <Box variant="h4">How to Use</Box>
                 <ol>
-                    <li>Upload your IaC template or architecture diagram</li>
+                    <li>Upload your IaC document(s) or architecture diagram</li>
                     <li>Select the Well-Architected pillars to review</li>
+                    <li>Optionally upload a supporting document to provide additional context for better analysis</li>
                     <li>Optionally provide a Well-Architected Tool workload ID</li>
                     <li>Review the analysis results and recommendations</li>
                     <li>Update your Well-Architected Tool workload or generate IaC templates</li>
@@ -47,15 +48,15 @@ export const helpContent = {
         body: (
             <SpaceBetween size="xxs">
                 <Box variant="p">
-                    Upload your Infrastructure as Code (IaC) template or architecture diagram for analysis:
+                    Upload your Infrastructure as Code (IaC) documents or architecture diagram for analysis:
                 </Box>
                 <ul>
-                    <li>Supported IaC formats: YAML, JSON (CloudFormation), and Terraform (.tf)</li>
+                    <li>Supported IaC formats: YAML, JSON (CloudFormation), Terraform (.tf), and AWS CDK (.ts, .py, .go, .java, .cs)</li>
                     <li>Supported image formats: PNG, JPG, JPEG</li>
-                    <li>Maximum file size: 50MB</li>
+                    <li>Maximum file size: 100MB</li>
                 </ul>
                 <Box variant="p">
-                    When uploading an architecture diagram, you can later generate IaC templates based on the analysis.
+                    You can upload a single file, multiple related files, or a complete project. When uploading an architecture diagram, you can later generate IaC templates based on the analysis.
                 </Box>
             </SpaceBetween>
         )
@@ -184,9 +185,17 @@ export const helpContent = {
                     Choose the type of Infrastructure as Code template to generate:
                 </Box>
                 <ul>
-                    <li><strong>CloudFormation YAML:</strong> Generate AWS CloudFormation template in YAML format</li>
-                    <li><strong>CloudFormation JSON:</strong> Generate AWS CloudFormation template in JSON format</li>
+                    <li><strong>CloudFormation YAML/JSON:</strong> Generate AWS CloudFormation templates</li>
                     <li><strong>Terraform:</strong> Generate HashiCorp Terraform configuration files</li>
+                    <li><strong>AWS CDK:</strong> Generate AWS Cloud Development Kit code in your preferred programming language:
+                        <ul>
+                            <li>TypeScript (.ts)</li>
+                            <li>Python (.py)</li>
+                            <li>Go (.go)</li>
+                            <li>Java (.java)</li>
+                            <li>C# (.cs)</li>
+                        </ul>
+                    </li>
                 </ul>
                 <Box variant="p">
                     This option is only available when analyzing architecture diagrams.

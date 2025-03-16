@@ -145,7 +145,12 @@ export interface SelectedItem {
 export enum IaCTemplateType {
   CLOUDFORMATION_YAML = 'CloudFormation (.yaml) template',
   CLOUDFORMATION_JSON = 'CloudFormation (.json) template',
-  TERRAFORM = 'Terraform (.tf) document'
+  TERRAFORM = 'Terraform (.tf) document',
+  CDK_TYPESCRIPT = 'AWS CDK - TypeScript (.ts)',
+  CDK_PYTHON = 'AWS CDK - Python (.py)',
+  CDK_GO = 'AWS CDK - Go (.go)',
+  CDK_JAVA = 'AWS CDK - Java (.java)',
+  CDK_CSHARP = 'AWS CDK - C# (.cs)'
 }
 
 export * from './auth';
