@@ -7,7 +7,7 @@
 
 Well-Architected Infrastructure as Code (IaC) Analyzer is a project that demonstrates how generative AI can be used to evaluate infrastructure code for alignment with best practices.
 
-It features a modern web application built with React and AWS Cloudscape Design System, allowing users to upload IaC documents (e.g., AWS CloudFormation or Terraform templates), complete IaC projects (multiple files or zip archives), or architecture diagrams for assessment. The application leverages Amazon Bedrock to analyze the infrastructure against AWS Well-Architected best practices. These best practices are sourced from AWS Well-Architected whitepapers and synchronized with the Amazon Bedrock knowledge base.
+It features a modern web application built with React and AWS Cloudscape Design System, allowing users to upload IaC documents (e.g., AWS CloudFormation, Terraform, or AWS CDK templates), complete IaC projects (multiple files or zip archives), or architecture diagrams for assessment. The application leverages Amazon Bedrock to analyze the infrastructure against AWS Well-Architected best practices. These best practices are sourced from AWS Well-Architected whitepapers and synchronized with the Amazon Bedrock knowledge base.
 
 This tool provides users with insights into how well their infrastructure code aligns with or deviates from established AWS best practices, offering suggestions for improving cloud architecture designs. Users can also upload supporting documents to provide additional context for more accurate analysis results. For architecture diagrams, it can even generate corresponding IaC templates following AWS best practices.
 
@@ -16,6 +16,7 @@ This tool provides users with insights into how well their infrastructure code a
 - Upload and analyze Infrastructure as Code templates:
   - CloudFormation (YAML/JSON)
   - Terraform (.tf)
+  - AWS CDK (in any [supported language](https://docs.aws.amazon.com/cdk/v2/guide/languages.html))
 - Upload and analyze architecture diagrams:
   - PNG format
   - JPEG/JPG format
