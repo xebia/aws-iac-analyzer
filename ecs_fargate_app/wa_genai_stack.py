@@ -467,7 +467,9 @@ class WAGenAIStack(Stack):
             bucket=wafrReferenceDocsBucket,
             knowledge_base=kb,
             data_source_name="wafr-reference-docs",
-            chunking_strategy=bedrock.ChunkingStrategy.FIXED_SIZE,
+            chunking_strategy=bedrock.ChunkingStrategy.hierarchical(
+                overlap_tokens=60, max_parent_token_size=2000, max_child_token_size=800
+            ),
         )
 
         # Data Ingestion Params

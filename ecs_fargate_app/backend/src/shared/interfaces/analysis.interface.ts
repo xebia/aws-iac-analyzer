@@ -8,6 +8,7 @@ export interface AnalysisResult {
 export interface BestPractice {
   id: string;
   name: string;
+  relevant: boolean;
   applied: boolean;
   reasonApplied?: string;
   reasonNotApplied?: string;

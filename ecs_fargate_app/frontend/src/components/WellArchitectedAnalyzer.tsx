@@ -636,7 +636,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
               header="Token Limit Warning"
             >
               Your project contains approximately {tokenCount.toLocaleString()} tokens, which exceeds the recommended limit of 200,000 tokens.
-              The analysis may lose context due to the large file size. Consider breaking your project into smaller pieces for better results.
+              The model invocation may fail or the analysis may lose context due to the large file size. Consider breaking your project into smaller pieces for better results.
             </Alert>
           )}
 

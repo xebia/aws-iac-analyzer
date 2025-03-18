@@ -7,6 +7,7 @@ interface AnalysisResult {
   question: string;
   bestPractices: {
     name: string;
+    relevant: boolean;
     applied: boolean;
     reasonApplied?: string;
     reasonNotApplied?: string;
@@ -40,7 +41,7 @@ export class ReportService {
   generateRecommendationsCsv(results: AnalysisResult[]): string {
     try {
       const rows = [
-        ['Pillar', 'Question', 'Best Practice', 'Applied', 'Reason', 'Recommendations'],
+        ['Pillar', 'Question', 'Best Practice', 'Relevant', 'Applied', 'Reason', 'Recommendations'],
       ];
 
       for (const result of results) {
@@ -49,6 +50,7 @@ export class ReportService {
             result.pillar,
             result.question,
             bp.name,
+            bp.relevant ? 'Yes' : 'No',
             bp.applied ? 'Yes' : 'No',
             bp.applied ? (bp.reasonApplied || '') : (bp.reasonNotApplied || ''),
             bp.recommendations || '',

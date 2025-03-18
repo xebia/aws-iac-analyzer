@@ -9,10 +9,12 @@ export interface BestPractice {
   name: string;
   pillarId: string;
   questionId: string;
+  relevant: boolean;
   applied: boolean;
   reasonApplied?: string;
   reasonNotApplied?: string;
   recommendations?: string;
+  extendedRecommendations?: string;
 }
 
 export interface AnalysisResult {
@@ -137,8 +139,10 @@ export interface SelectedItem {
   bestPractices: {
       id: string;
       name: string;
+      relevant: boolean;
       applied: boolean;
       recommendations?: string;
+      extendedRecommendations?: string;
   }[];
 }
 
@@ -185,7 +189,7 @@ export interface WorkItem {
   tags?: string[];         // Optional user tags
   workloadId?: string;     // Associated WA Tool workload ID
 
-  // Properties for multiple files
+  // Properties for multiple files support
   uploadMode?: FileUploadMode;
   exceedsTokenLimit?: boolean;
   tokenCount?: number;
@@ -196,6 +200,9 @@ export interface WorkItem {
   supportingDocumentDescription?: string; // Description of the supporting document
   supportingDocumentName?: string;  // Name of the supporting document
   supportingDocumentType?: string;  // MIME type of the supporting document
+  
+  // IaC template type
+  iacGeneratedFileType?: string;
 }
 
 export type WorkItemStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'PARTIAL';

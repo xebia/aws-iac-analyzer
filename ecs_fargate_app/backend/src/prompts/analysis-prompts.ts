@@ -21,15 +21,13 @@ export function buildImagePrompt(
   }, null, 2);
 
   let prompt = `
-  Analyze the provided architecture diagram against the following Well-Architected best practices.
-  
-  <kb>
-  ${kbContexts.join('\n\n')}
-  </kb>
-
   <best_practices_json>
   ${bestPracticesJson}
   </best_practices_json>
+
+  <kb>
+  ${kbContexts.join('\n\n')}
+  </kb>
 `;
 
   // Add supporting document reference if provided
@@ -67,13 +65,13 @@ export function buildPrompt(
   }, null, 2);
 
   let prompt = `
-  <kb>
-  ${kbContexts.join('\n\n')}
-  </kb>
-
   <best_practices_json>
   ${bestPracticesJson}
   </best_practices_json>
+
+  <kb>
+  ${kbContexts.join('\n\n')}
+  </kb>
 `;
 
   // Add supporting document reference if provided
@@ -111,13 +109,13 @@ export function buildProjectPrompt(
   }, null, 2);
 
   let prompt = `
-  <kb>
-  ${kbContexts.join('\n\n')}
-  </kb>
-
   <best_practices_json>
   ${bestPracticesJson}
   </best_practices_json>
+
+  <kb>
+  ${kbContexts.join('\n\n')}
+  </kb>
 `;
 
   // Add supporting document reference if provided
