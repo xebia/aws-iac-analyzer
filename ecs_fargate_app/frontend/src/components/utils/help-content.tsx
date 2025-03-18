@@ -90,7 +90,14 @@ export const helpContent = {
                     Review the analysis of your infrastructure against Well-Architected best practices:
                 </Box>
                 <ul>
-                    <li>View applied and not applied best practices. Use the table filters and preferences to customize your view.</li>
+                    <li>View applied, not applied, and not relevant best practices. Use the table filters and preferences to customize your view.</li>
+                    <li><strong>Status Indicators:</strong>
+                        <ul>
+                            <li><strong>Applied (Green):</strong> Best practice is implemented in your infrastructure</li>
+                            <li><strong>Not Applied (Red):</strong> Best practice is relevant but not implemented</li>
+                            <li><strong>Not Relevant (Grey):</strong> Best practice is not applicable to your infrastructure</li>
+                        </ul>
+                    </li>
                     <li><strong>Get More Details:</strong> Get in-depth analysis and recommendations for selected best practices</li>
                     <li><strong>Generate IaC Document:</strong> Convert architecture diagrams into infrastructure code (Available only for image uploads)</li>
                     <li><strong>Download Analysis:</strong> Export all findings and recommendations as a CSV file</li>

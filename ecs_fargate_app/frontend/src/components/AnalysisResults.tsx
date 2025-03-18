@@ -97,10 +97,11 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
   const getBestPracticeCounts = (practices: EnhancedBestPractice[]) => {
     return practices.reduce(
       (acc, practice) => ({
-        applied: acc.applied + (practice.applied ? 1 : 0),
-        notApplied: acc.notApplied + (practice.applied ? 0 : 1),
+        applied: acc.applied + (practice.relevant && practice.applied ? 1 : 0),
+        notApplied: acc.notApplied + (practice.relevant && !practice.applied ? 1 : 0),
+        notRelevant: acc.notRelevant + (!practice.relevant ? 1 : 0),
       }),
-      { applied: 0, notApplied: 0 }
+      { applied: 0, notApplied: 0, notRelevant: 0 }
     );
   };
 
@@ -114,7 +115,7 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
     }))
   );
 
-  const { applied, notApplied } = getBestPracticeCounts(flattenedBestPractices);
+  const { applied, notApplied, notRelevant } = getBestPracticeCounts(flattenedBestPractices);
 
   const { items, actions, filteredItemsCount, collectionProps, propertyFilterProps, paginationProps } = useCollection(
     flattenedBestPractices,
@@ -156,7 +157,7 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
         variant="stacked"
       >
         <KeyValuePairs
-          columns={2}
+          columns={3}
           items={[
             {
               label: "Best Practices Applied",
@@ -169,6 +170,12 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
               value: isAnalyzing ?
                 <StatusIndicator type="loading">Loading</StatusIndicator> :
                 <StatusIndicator type="error">{notApplied}</StatusIndicator>
+            },
+            {
+              label: "Best Practices Not Relevant",
+              value: isAnalyzing ?
+                <StatusIndicator type="loading">Loading</StatusIndicator> :
+                <StatusIndicator type="stopped">{notRelevant}</StatusIndicator>
             }
           ]}
         />
@@ -247,24 +254,39 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
           {
             id: 'status',
             header: 'Status',
-            cell: item => (
-              <StatusIndicator type={item.applied ? 'success' : 'error'}>
-                {item.applied ? 'Applied' : 'Not Applied'}
-              </StatusIndicator>
-            ),
+            cell: item => {
+              if (!item.relevant) {
+                return <StatusIndicator type="stopped">Not Relevant</StatusIndicator>;
+              }
+              return (
+                <StatusIndicator type={item.applied ? 'success' : 'error'}>
+                  {item.applied ? 'Applied' : 'Not Applied'}
+                </StatusIndicator>
+              );
+            },
             sortingField: 'applied',
-            minWidth: 140,
+            minWidth: 145,
           },
           {
             id: 'reason',
             header: 'Reason',
-            cell: item => item.applied ? item.reasonApplied : item.reasonNotApplied,
+            cell: item => {
+              if (!item.relevant) {
+                return 'N/A';
+              }
+              return item.applied ? item.reasonApplied : item.reasonNotApplied;
+            },
             minWidth: 200,
           },
           {
             id: 'recommendations',
             header: 'Recommendations',
-            cell: item => !item.applied && item.recommendations || 'N/A',
+            cell: item => {
+              if (!item.relevant) {
+                return 'N/A';
+              }
+              return !item.applied && item.recommendations || 'N/A';
+            },
             minWidth: 500,
           },
         ]}

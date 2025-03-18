@@ -3,7 +3,7 @@
 
 ![solutions_diagram](/assets/wa_genai_app_diagram.png)
 
-## Description 
+## Description
 
 Well-Architected Infrastructure as Code (IaC) Analyzer is a project that demonstrates how generative AI can be used to evaluate infrastructure code for alignment with best practices.
 
@@ -54,7 +54,7 @@ This option uses AWS CloudFormation to create a temporary deployment environment
 
 You must enable **AWS Bedrock Model Access** to the following LLM models in your AWS region:
 * **Titan Text Embeddings V2**
-* **Claude 3.5 Sonnet v2**
+* **Claude 3.5 Sonnet v2** (default) or **\*NEW\* Claude 3.7 Sonnet with extended thinking**
 * To enable these models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
 #### Deployment Steps
@@ -71,7 +71,9 @@ You must enable **AWS Bedrock Model Access** to the following LLM models in your
 4. On the "Specify stack details" page. Enter or change the stack name, then:
    - Change the stack parameters as needed. Check the [CloudFormation Configuration Parameters](#cloudFormation-configuration-parameters) section below for details
 
-   > **Note:** By default, the stack deploys with a Public Application Load Balancer (internet-facing) without authentication enabled. It's strongly recommended to enable authentication to properly secure your internet-facing application.
+     - **Security Note:** By default, the stack deploys with a Public Application Load Balancer (internet-facing) without authentication enabled. It's strongly recommended to enable authentication to properly secure your internet-facing application.
+
+     - **Model Selection Note:** The tool currently defaults to Claude 3.5 Sonnet V2. If you want to use Claude 3.7 Sonnet, you'll need to explicitly add the model ID in the stack "Amazon Bedrock Model ID" configuration parameter (e.g., for US regions: `us.anthropic.claude-3-7-sonnet-20250219-v1:0`). Please note that Claude 3.7 Sonnet is not available in all AWS regions, so verify availability in your region before deployment.
 
    - Choose "Next" until reaching the "Review" page and choose "Submit".
 
@@ -103,7 +105,7 @@ Once complete, you'll find a new CloudFormation stack named **WA-IaC-Analyzer-{r
 
 You must enable **AWS Bedrock Model Access** to the following LLM models in your AWS region:
 * **Titan Text Embeddings V2**
-* **Claude 3.5 Sonnet v2**
+* **Claude 3.5 Sonnet v2** (default) or **\*NEW\* Claude 3.7 Sonnet with extended thinking**
 * To enable these models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
 Apart from enabling access to the model listed above, the following tools must be installed on your local machine:
@@ -161,7 +163,7 @@ After successful deployment, you can find the Application Load Balancer (ALB) DN
 
 You must enable **AWS Bedrock Model Access** to the following LLM models in your AWS region:
 * **Titan Text Embeddings V2**
-* **Claude 3.5 Sonnet v2**
+* **Claude 3.5 Sonnet v2** (default) or **\*NEW\* Claude 3.7 Sonnet with extended thinking**
 * To enable these models, follow the instructions [here](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html).
 
 Apart from enabling access to the model listed above, the following tools must be installed on your local machine:
@@ -277,7 +279,7 @@ After successful deployment, you can find the Application Load Balancer (ALB) DN
 - **Amazon Bedrock Model ID** (`ModelId`)
   - Default: `anthropic.claude-3-5-sonnet-20241022-v2:0` (Claude 3.5 Sonnet v2)
   - You can specify an alternative [Bedrock model ID](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html#model-ids-arns) if needed
-  - **Note**: This application has been primarily tested with Claude 3.5 Sonnet v2. While other Bedrock models may work, using different models might lead to unexpected results.
+  - **Note**: This application has been primarily tested with Claude 3.5 Sonnet v2 and Claude 3.7 Sonnet. While other Bedrock models may work, using different models might lead to unexpected results.
 
 ### Authentication Settings
 

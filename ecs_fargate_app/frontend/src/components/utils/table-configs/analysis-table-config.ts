@@ -18,6 +18,12 @@ export const tableFilteringProperties = [
       operators: [':', '!:', '=', '!=', '^'],
     },
     {
+      propertyLabel: 'Is Best Practice Relevant?',
+      key: 'relevant',
+      groupValuesLabel: 'Relevance values',
+      operators: ['=', '!='],
+    },
+    {
       propertyLabel: 'Is Best Practice Applied?',
       key: 'applied',
       groupValuesLabel: 'Status values',

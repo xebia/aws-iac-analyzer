@@ -6,7 +6,7 @@ import {
     Message,
     SystemContentBlock
 } from '@aws-sdk/client-bedrock-runtime';
-import { RetrieveCommand } from '@aws-sdk/client-bedrock-agent-runtime';
+import { RetrieveAndGenerateCommand } from '@aws-sdk/client-bedrock-agent-runtime';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { paginateListAnswers, AnswerSummary } from '@aws-sdk/client-wellarchitected';
 import { ConfigService } from '@nestjs/config';
@@ -37,10 +37,12 @@ interface WellArchitectedBestPractice {
 
 interface BestPractice {
     name: string;
+    relevant: boolean;
     applied: boolean;
     reasonApplied: string;
     reasonNotApplied: string;
     recommendations: string;
+    extendedRecommendations?: string;
 }
 
 interface ModelResponse {
@@ -80,6 +82,41 @@ export class AnalyzerService {
         private readonly storageService: StorageService,
     ) {
         this.storageEnabled = this.configService.get<boolean>('storage.enabled', false);
+    }
+
+    
+    // Check if the current model is Claude 3.7 Sonnet
+    private isClaudeSonnet37(): boolean {
+        const modelId = this.configService.get<string>('aws.bedrock.modelId');
+        return modelId && (
+            modelId.includes('anthropic.claude-3-7-sonnet') || 
+            modelId.includes('us.anthropic.claude-3-7-sonnet')
+        );
+    }
+
+    // Configure model parameters based on the model type
+    private getModelParameters() {
+        const isClaudeSonnet37 = this.isClaudeSonnet37();
+        
+        if (isClaudeSonnet37) {
+            return {
+                additionalModelRequestFields: {
+                    thinking: {
+                        type: "enabled",
+                        budget_tokens: 8000
+                    }
+                },
+                inferenceConfig: {
+                    maxTokens: 20480
+                }
+            };
+        }
+        
+        return {
+            inferenceConfig: {
+                maxTokens: 4096
+            }
+        };
     }
 
     private async getFileContent(userId: string, fileId: string): Promise<{ content: string; type: string }> {
@@ -273,7 +310,8 @@ export class AnalyzerService {
                         try {
                             kbContexts = await this.retrieveFromKnowledgeBase(
                                 question.pillar,
-                                question.title
+                                question.title,
+                                question
                             );
                         } catch (error) {
                             if (workItem && results.length > 0) {
@@ -518,7 +556,7 @@ export class AnalyzerService {
 
                             await this.storageService.updateWorkItem(userId, fileId, {
                                 iacGenerationStatus: 'PARTIAL',
-                                iacGenerationProgress: Math.round((allSections.length / 10) * 100), // Estimate progress
+                                iacGenerationProgress: Math.min(Math.round((allSections.length / 10) * 100), 90), // Estimate progress
                                 iacGenerationError: 'Generation cancelled by user',
                                 iacPartialResults: true,
                                 iacGeneratedFileType: templateType,
@@ -580,7 +618,7 @@ export class AnalyzerService {
 
                         await this.storageService.updateWorkItem(userId, fileId, {
                             iacGenerationStatus: 'PARTIAL',
-                            iacGenerationProgress: Math.round((allSections.length / 10) * 100),
+                            iacGenerationProgress: Math.min(Math.round((allSections.length / 10) * 100), 90),
                             iacGenerationError: error.message,
                             iacPartialResults: true,
                             iacGeneratedFileType: templateType,
@@ -680,7 +718,7 @@ export class AnalyzerService {
         fileId: string,
         templateType?: IaCTemplateType
     ): Promise<{ content: string; error?: string }> {
-        const filteredItems = selectedItems.filter(item => !item.applied);
+        const filteredItems = selectedItems.filter(item => !item.applied && item.relevant === true);
         try {
             if (!selectedItems || selectedItems.length === 0) {
                 throw new Error('No items selected for detailed analysis');
@@ -827,13 +865,17 @@ export class AnalyzerService {
 
                             const bedrockClient = this.awsConfig.createBedrockClient();
                             const modelId = this.configService.get<string>('aws.bedrock.modelId');
+                            
+                            // Get model parameters based on the model type
+                            const modelParams = this.getModelParameters();
 
                             const command = new ConverseCommand({
                                 modelId,
+                                ...modelParams,
                                 messages,
                                 system: [
                                     {
-                                        text: Prompts.buildImageDetailsSystemPrompt(templateType)
+                                        text: Prompts.buildImageDetailsSystemPrompt(templateType, modelId)
                                     }
                                 ]
                             });
@@ -895,13 +937,17 @@ export class AnalyzerService {
 
                             const bedrockClient = this.awsConfig.createBedrockClient();
                             const modelId = this.configService.get<string>('aws.bedrock.modelId');
+                            
+                            // Get model parameters based on the model type
+                            const modelParams = this.getModelParameters();
 
                             const command = new ConverseCommand({
                                 modelId,
+                                ...modelParams,
                                 messages,
                                 system: [
                                     {
-                                        text: Prompts.buildDetailsSystemPrompt()
+                                        text: Prompts.buildDetailsSystemPrompt(modelId)
                                     }
                                 ]
                             });
@@ -1009,28 +1055,52 @@ export class AnalyzerService {
         };
     }
 
-    private async retrieveFromKnowledgeBase(pillar: string, question: string) {
+    private async retrieveFromKnowledgeBase(pillar: string, question: string, questionGroup: QuestionGroup): Promise<string[]> {
         const bedrockAgent = this.awsConfig.createBedrockAgentClient();
         const knowledgeBaseId = this.configService.get<string>('aws.bedrock.knowledgeBaseId');
-
-        const command = new RetrieveCommand({
-            knowledgeBaseId,
-            retrievalQuery: {
-                text: `For each best practice of the question "${question}" in the Well-Architected pillar "${pillar}" provide:
-        - Recommendations
-        - Best practices
-        - Examples
-        - Risks`,
+        const modelId = this.configService.get<string>('aws.bedrock.modelId');
+        const bestPracticesJson = JSON.stringify({
+            pillar: questionGroup.pillar,
+            question: questionGroup.title,
+            bestPractices: questionGroup.bestPractices
+          }, null, 2);
+    
+        const command = new RetrieveAndGenerateCommand({
+            input: {
+                text: `Below <best_practices_to_retrieve> section contains the list of best practices of the question "${question}" in the Well-Architected pillar "${pillar}":
+        <best_practices_to_retrieve>
+        ${bestPracticesJson}
+        </best_practices_to_retrieve>
+        For each best practice provide:
+        - Name of the Best Practice
+        - Level of risk exposed if this best practice is not established
+        - Implementation guidance details
+        - List common anti-patterns (if any)
+        - Does this best practice directly relates to AWS resources, configurations, architecture patterns, or technical implementations? Or, does it primarily concerns organizational processes, team structures, or governance?`,
             },
-            retrievalConfiguration: {
-                vectorSearchConfiguration: {
-                    numberOfResults: 20,
-                },
-            },
+            retrieveAndGenerateConfiguration: {
+                type: "KNOWLEDGE_BASE",
+                knowledgeBaseConfiguration: {
+                    knowledgeBaseId: knowledgeBaseId,
+                    modelArn: modelId,
+                    retrievalConfiguration: {
+                        vectorSearchConfiguration: {
+                            numberOfResults: 10,
+                        },
+                    },
+                    generationConfiguration: {
+                        promptTemplate: {
+                            textPromptTemplate: "You are an AWS Well-Architected Framework expert. Using the following retrieved information about AWS Well-Architected best practices:\n\n$search_results$\n\nAnswer the following query:\n\n${input}\n\nProvide a comprehensive response that covers each best practice, its associated risk level, implementation guidance and a list of common anti-patterns (if any). Format your response clearly with proper headings and bullet points such as:\n\n## <Best Practice ID : Best Practice Name> (e.g. OPS01-BP01: Evaluate External Customer Needs)\n\n**Risk Level**: <Associated risk level>\n\n**Implementation Guidance**:\n\n<bullet points with implementation guidance details>\n\n**Common anti-patterns**:\n\n<bullet points with list common anti-patterns (if any)>\n\n**Relationship**: <Answers to the mentioned question Does this best practice directly relates to AWS resources, configurations, architecture patterns, or technical implementations? Or, does it primarily concerns organizational processes, team structures, or governance?>\n\n**Technical Relevancy score:** <1 to 10, where 1 is not related at all to AWS resources, configurations, architecture patterns, or technical implementations while 10 is fully related to them>"
+                        }
+                    }
+                }
+            }
         });
-
+    
         const response = await bedrockAgent.send(command);
-        return response.retrievalResults?.map(result => result.content?.text || '') || [];
+        
+        // Return as an array with one element to match the expected return type
+        return response.output?.text ? [response.output.text] : [];
     }
 
     private async analyzeQuestion(
@@ -1144,6 +1214,9 @@ export class AnalyzerService {
     ): Promise<ModelResponse> {
         const bedrockClient = this.awsConfig.createBedrockClient();
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
+        
+        // Get model parameters based on the model type
+        const modelParams = this.getModelParameters();
 
         try {
             // Extract base64 data and media type from data URL
@@ -1215,6 +1288,7 @@ export class AnalyzerService {
 
             const command = new ConverseCommand({
                 modelId,
+                ...modelParams,
                 messages,
                 system
             });
@@ -1241,6 +1315,9 @@ export class AnalyzerService {
     ): Promise<ModelResponse> {
         const bedrockClient = this.awsConfig.createBedrockClient();
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
+        
+        // Get model parameters based on the model type
+        const modelParams = this.getModelParameters();
 
         // Prepare base message
         const messages: Message[] = [
@@ -1289,6 +1366,7 @@ export class AnalyzerService {
         try {
             const command = new ConverseCommand({
                 modelId,
+                ...modelParams,
                 messages,
                 system: [
                     {
@@ -1326,8 +1404,11 @@ export class AnalyzerService {
     ): Promise<{ content: string; isCancelled: boolean }> {
         const bedrockClient = this.awsConfig.createBedrockClient();
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
+        
+        // Get model parameters based on the model type
+        const modelParams = this.getModelParameters();
 
-        const systemPrompt = Prompts.buildIacGenerationSystemPrompt(templateType);
+        const systemPrompt = Prompts.buildIacGenerationSystemPrompt(templateType, modelId);
         const prompt = Prompts.buildIacGenerationPrompt(
             previousSections,
             allPreviousSections,
@@ -1400,6 +1481,7 @@ export class AnalyzerService {
         try {
             const command = new ConverseCommand({
                 modelId,
+                ...modelParams,
                 messages,
                 system: [
                     {
@@ -1441,10 +1523,12 @@ export class AnalyzerService {
             return response.bestPractices.map((bp: BestPractice, index: number) => ({
                 id: questionGroup.bestPracticeIds[index],
                 name: bp.name,
+                relevant: bp.relevant,
                 applied: bp.applied,
                 reasonApplied: bp.reasonApplied,
                 reasonNotApplied: bp.reasonNotApplied,
                 recommendations: bp.recommendations,
+                extendedRecommendations: bp.extendedRecommendations,
             }));
         } catch (error) {
             this.logger.error('Error parsing model response:', error);
