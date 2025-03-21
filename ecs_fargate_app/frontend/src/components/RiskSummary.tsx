@@ -111,6 +111,7 @@ export const RiskSummary: React.FC<RiskSummaryProps> = ({
                   loading={isUpdating || isGeneratingReport}
                   loadingText="Updating workload..."
                   onItemClick={handleDropdownAction}
+                  expandToViewport={true}
                   mainAction={{
                     text: 'Complete Well-Architected Tool Review',
                     onClick: onUpdate

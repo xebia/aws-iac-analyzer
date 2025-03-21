@@ -203,6 +203,9 @@ export interface WorkItem {
   
   // IaC template type
   iacGeneratedFileType?: string;
+
+  // Chat history flag
+  hasChatHistory?: boolean;
 }
 
 export type WorkItemStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'PARTIAL';
@@ -217,4 +220,5 @@ export interface WorkItemResponse {
   content?: WorkItemContent | string;
   analysisResults?: any;
   iacDocument?: string;
+  hasChatHistory?: boolean;
 }

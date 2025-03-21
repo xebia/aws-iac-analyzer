@@ -54,11 +54,12 @@ export const analyzerApi = {
     }
   },
 
-  async updateWorkload(workloadId: string, questionId: string, selectedChoices: string[]) {
+  async updateWorkload(workloadId: string, questionId: string, selectedChoices: string[], notApplicableChoiceIds: string[] = []) {
     try {
       const response = await api.post(`/well-architected/answer/${workloadId}`, {
         questionId,
         selectedChoices,
+        notApplicableChoices: notApplicableChoiceIds,
       });
       return response.data;
     } catch (error) {
@@ -183,4 +184,16 @@ export const analyzerApi = {
       throw handleError(error);
     }
   },
+
+  async sendChatMessage(fileId: string, message: string): Promise<{ content: string }> {
+    try {
+      const response = await api.post('/analyzer/chat', {
+        fileId,
+        message
+      });
+      return response.data;
+    } catch (error) {
+      throw handleError(error);
+    }
+  }
 };

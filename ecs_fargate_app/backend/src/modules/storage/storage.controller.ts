@@ -35,7 +35,7 @@ export class StorageController {
     private getUserEmail(userDataHeader: string): string | null {
         // Check if authentication is enabled
         const isAuthEnabled = this.configService.get<boolean>('auth.enabled', false);
-        
+
         if (!isAuthEnabled) {
             // Return default "iac-analyzer" common profile when auth is disabled
             return 'iac-analyzer';
@@ -80,7 +80,7 @@ export class StorageController {
             }
 
             const userId = this.storageService.createUserIdHash(email);
-            
+
             // Validate file size (4.5MB max)
             const MAX_SIZE = 4.5 * 1024 * 1024; // 4.5MB in bytes
             if (file.size > MAX_SIZE) {
@@ -89,21 +89,21 @@ export class StorageController {
                     HttpStatus.BAD_REQUEST,
                 );
             }
-            
+
             // Validate file type
             const validTypes = [
-                'application/pdf', 
+                'application/pdf',
                 'text/plain',
                 'image/png',
                 'image/jpeg'
             ];
-            
+
             const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
             if (fileExtension === 'txt' && !validTypes.includes(file.mimetype)) {
                 file.mimetype = 'text/plain';
             } else if (!validTypes.includes(file.mimetype)) {
                 throw new HttpException(
-                    'Unsupported file type. Supported types: PDF, TXT, PNG, JPEG/JPG', 
+                    'Unsupported file type. Supported types: PDF, TXT, PNG, JPEG/JPG',
                     HttpStatus.BAD_REQUEST,
                 );
             }
@@ -115,7 +115,7 @@ export class StorageController {
                     HttpStatus.BAD_REQUEST,
                 );
             }
-            
+
             // Check if mainFileId is provided
             if (!mainFileId) {
                 throw new HttpException(
@@ -169,8 +169,8 @@ export class StorageController {
 
             // Get the supporting document
             const { data, contentType, fileName } = await this.storageService.getSupportingDocument(
-                userId, 
-                fileId, 
+                userId,
+                fileId,
                 supportingDocId
             );
 
@@ -204,7 +204,7 @@ export class StorageController {
             }
 
             const userId = this.storageService.createUserIdHash(email);
-            
+
             const workItem = await this.storageService.createWorkItem(
                 userId,
                 file.originalname,
@@ -237,7 +237,7 @@ export class StorageController {
 
             const userId = this.storageService.createUserIdHash(email);
             const uploadMode = mode as FileUploadMode;
-            
+
             if (!files || files.length === 0) {
                 throw new HttpException('No files provided', HttpStatus.BAD_REQUEST);
             }
@@ -252,7 +252,7 @@ export class StorageController {
 
             // Process files based on mode
             let result: { fileId: string; tokenCount?: number; exceedsTokenLimit?: boolean };
-            
+
             switch (uploadMode) {
                 case FileUploadMode.SINGLE_FILE:
                     const workItem = await this.storageService.createWorkItem(
@@ -354,6 +354,7 @@ export class StorageController {
             description: string;
             type: string;
         };
+        hasChatHistory?: boolean;
     }> {
         try {
             const email = this.getUserEmail(userDataHeader);
@@ -372,6 +373,9 @@ export class StorageController {
                 userId,
                 fileId,
             );
+
+            // Get hasChatHistory flag
+            response.hasChatHistory = workItem.hasChatHistory;
 
             // Get analysis results if completed
             if (workItem.analysisStatus === 'COMPLETED' || workItem.analysisStatus === 'PARTIAL') {
@@ -492,6 +496,129 @@ export class StorageController {
         } catch (error) {
             throw new HttpException(
                 error.message || 'Failed to get IaC document',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    // Endpoint to get chat history
+    @Get('work-items/:fileId/chat-history')
+    async getChatHistory(
+        @Param('fileId') fileId: string,
+        @Headers('x-amzn-oidc-data') userDataHeader: string,
+    ) {
+        try {
+            const email = this.getUserEmail(userDataHeader);
+            if (!email) {
+                throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+            }
+
+            const userId = this.storageService.createUserIdHash(email);
+            const chatHistory = await this.storageService.getChatHistory(userId, fileId);
+
+            return chatHistory;
+        } catch (error) {
+            throw new HttpException(
+                error.message || 'Failed to get chat history',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    // Endpoint to download chat history
+    @Get('work-items/:fileId/chat-history/download')
+    async downloadChatHistory(
+        @Param('fileId') fileId: string,
+        @Headers('x-amzn-oidc-data') userDataHeader: string,
+        @Res() response: Response,
+    ) {
+        try {
+            const email = this.getUserEmail(userDataHeader);
+            if (!email) {
+                throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+            }
+
+            const userId = this.storageService.createUserIdHash(email);
+
+            // Get the work item to get the file name
+            const workItem = await this.storageService.getWorkItem(userId, fileId);
+
+            // Get the chat history
+            const chatHistory = await this.storageService.getChatHistory(userId, fileId);
+
+            if (!chatHistory || chatHistory.length === 0) {
+                throw new HttpException('No chat history found', HttpStatus.NOT_FOUND);
+            }
+
+            // Format chat history for better readability
+            const formattedChatHistory = JSON.stringify(chatHistory, null, 2);
+
+            // Set response headers
+            response.setHeader('Content-Type', 'application/json');
+            response.setHeader(
+                'Content-Disposition',
+                `attachment; filename="chat_history_${workItem.fileName.replace(/\.\w+$/, '')}.json"`
+            );
+
+            // Send the JSON data
+            response.end(formattedChatHistory);
+        } catch (error) {
+            throw new HttpException(
+                error.message || 'Failed to download chat history',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    // Endpoint to delete chat history
+    @Delete('work-items/:fileId/chat-history')
+    async deleteChatHistory(
+        @Param('fileId') fileId: string,
+        @Headers('x-amzn-oidc-data') userDataHeader: string,
+    ) {
+        try {
+            const email = this.getUserEmail(userDataHeader);
+            if (!email) {
+                throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+            }
+
+            const userId = this.storageService.createUserIdHash(email);
+            await this.storageService.deleteChatHistory(userId, fileId);
+
+            return { message: 'Chat history deleted successfully' };
+        } catch (error) {
+            throw new HttpException(
+                error.message || 'Failed to delete chat history',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    // Store chat history
+    @Post('work-items/:fileId/chat-history')
+    async storeChatHistory(
+        @Param('fileId') fileId: string,
+        @Body() body: { messages: any[] },
+        @Headers('x-amzn-oidc-data') userDataHeader: string,
+    ) {
+        try {
+            const email = this.getUserEmail(userDataHeader);
+            if (!email) {
+                throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+            }
+
+            const userId = this.storageService.createUserIdHash(email);
+            
+            // Validate that there are messages to store
+            if (!body.messages || !Array.isArray(body.messages)) {
+                throw new HttpException('Messages array is required', HttpStatus.BAD_REQUEST);
+            }
+            
+            await this.storageService.storeChatHistory(userId, fileId, body.messages);
+            return { success: true, message: 'Chat history stored successfully' };
+        } catch (error) {
+            throw new HttpException(
+                error.message || 'Failed to store chat history',
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }

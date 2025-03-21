@@ -9,6 +9,7 @@ import { WorkSideNavigation, WorkSideNavigationRef } from './components/WorkSide
 import '@cloudscape-design/global-styles/index.css';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { WorkItem } from './types';
+import { ChatProvider } from './components/chat/ChatContext';
 
 function AppContent() {
   const { isToolsOpen, content, setIsToolsOpen } = useHelpPanel();
@@ -44,24 +45,24 @@ function AppContent() {
 
   const handleWorkItemSelect = async (workItem: WorkItem, loadResults: boolean = true) => {
     setActiveFileId(workItem.fileId);
-    
+
     if (loadResults) {
       // Get reference to WellArchitectedAnalyzer component
       const analyzerElement = document.querySelector('[data-testid="well-architected-analyzer"]');
       if (analyzerElement) {
         return new Promise<void>((resolve) => {
           // Create and dispatch the event
-          const event = new CustomEvent('workItemSelected', { 
+          const event = new CustomEvent('workItemSelected', {
             detail: { workItem },
-            bubbles: true 
+            bubbles: true
           });
-          
+
           // Add one-time event listener for when loading is complete
           const handleLoadComplete = () => {
             resolve();
             analyzerElement.removeEventListener('loadComplete', handleLoadComplete);
           };
-          
+
           analyzerElement.addEventListener('loadComplete', handleLoadComplete);
           analyzerElement.dispatchEvent(event);
         });
@@ -88,58 +89,60 @@ function AppContent() {
         }}
         utilities={userMenuUtilities}
       />
-      <AppLayout
-        content={
-          <ContentLayout
-            header={
-              <Header
-                variant="h3"
-                info={<HelpButton contentId="default" />}
-              >
-                Review your infrastructure as code against AWS Well-Architected Framework Best Practices
-              </Header>
-            }
-          >
-            <div data-testid="well-architected-analyzer" key="analyzer">
-              <WellArchitectedAnalyzer onWorkItemsRefreshNeeded={handleWorkItemsRefresh} />
-            </div>
-          </ContentLayout>
-        }
-        navigation={authState.isAuthenticated ? (
-          <WorkSideNavigation 
-            key="side-nav"
-            ref={sideNavRef}
-            activeFileId={activeFileId}
-            onItemSelect={handleWorkItemSelect}
-            onSectionExpand={handleSectionExpand}
-            onResetActiveFile={handleResetActiveFile}
-          />
-        ) : undefined}
-        navigationHide={!authState.isAuthenticated}
-        navigationWidth={320}
-        navigationOpen={isNavigationOpen}
-        onNavigationChange={({ detail }) => setIsNavigationOpen(detail.open)}
-        toolsOpen={isToolsOpen}
-        onToolsChange={({ detail }) => setIsToolsOpen(detail.open)}
-        tools={
-          <HelpPanel
-            key="help-panel"
-            header={<h2>{content?.header || defaultContent.header}</h2>}
-          >
-            {content?.body || defaultContent.body}
-          </HelpPanel>
-        }
-        maxContentWidth={Number.MAX_VALUE}
-        ariaLabels={{
-          navigation: "Side navigation",
-          navigationClose: "Close side navigation",
-          navigationToggle: "Open side navigation",
-          notifications: "Notifications",
-          tools: "Help panel",
-          toolsClose: "Close help panel",
-          toolsToggle: "Open help panel"
-        }}
-      />
+      <ChatProvider fileId={activeFileId}>
+        <AppLayout
+          content={
+            <ContentLayout
+              header={
+                <Header
+                  variant="h3"
+                  info={<HelpButton contentId="default" />}
+                >
+                  Review your infrastructure as code against AWS Well-Architected Framework Best Practices
+                </Header>
+              }
+            >
+              <div data-testid="well-architected-analyzer" key="analyzer">
+                <WellArchitectedAnalyzer onWorkItemsRefreshNeeded={handleWorkItemsRefresh} />
+              </div>
+            </ContentLayout>
+          }
+          navigation={authState.isAuthenticated ? (
+            <WorkSideNavigation
+              key="side-nav"
+              ref={sideNavRef}
+              activeFileId={activeFileId}
+              onItemSelect={handleWorkItemSelect}
+              onSectionExpand={handleSectionExpand}
+              onResetActiveFile={handleResetActiveFile}
+            />
+          ) : undefined}
+          navigationHide={!authState.isAuthenticated}
+          navigationWidth={320}
+          navigationOpen={isNavigationOpen}
+          onNavigationChange={({ detail }) => setIsNavigationOpen(detail.open)}
+          toolsOpen={isToolsOpen}
+          onToolsChange={({ detail }) => setIsToolsOpen(detail.open)}
+          tools={
+            <HelpPanel
+              key="help-panel"
+              header={<h2>{content?.header || defaultContent.header}</h2>}
+            >
+              {content?.body || defaultContent.body}
+            </HelpPanel>
+          }
+          maxContentWidth={Number.MAX_VALUE}
+          ariaLabels={{
+            navigation: "Side navigation",
+            navigationClose: "Close side navigation",
+            navigationToggle: "Open side navigation",
+            notifications: "Notifications",
+            tools: "Help panel",
+            toolsClose: "Close help panel",
+            toolsToggle: "Open help panel"
+          }}
+        />
+      </ChatProvider>
     </div>
   );
 }

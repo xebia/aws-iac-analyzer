@@ -160,4 +160,33 @@ export class AnalyzerController {
       );
     }
   }
+
+  @Post('chat')
+  async chat(
+    @Body() body: { fileId: string; message: string },
+    @Headers('x-amzn-oidc-data') userDataHeader: string,
+  ) {
+    try {
+      const email = this.getUserEmail(userDataHeader);
+      const userId = email ? this.storageService.createUserIdHash(email) : null;
+
+      if (!userId) {
+        throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+      }
+
+      const result = await this.analyzerService.chat(
+        body.fileId,
+        body.message,
+        userId
+      );
+      
+      return { content: result };
+    } catch (error) {
+      this.logger.error('Chat processing failed:', error);
+      throw new HttpException(
+        `Failed to process chat message: ${error.message || error}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

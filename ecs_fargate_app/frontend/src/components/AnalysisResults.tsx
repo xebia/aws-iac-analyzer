@@ -18,6 +18,7 @@ import { useCollection } from '@cloudscape-design/collection-hooks';
 import { AnalysisResult, BestPractice, IaCTemplateType } from '../types';
 import { DetailsModal } from './DetailsModal';
 import { analyzerApi } from '../services/api';
+import { useChat } from '../components/chat/ChatContext';
 import {
   tableFilteringProperties,
   paginationLabels,
@@ -61,6 +62,7 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [detailsContent, setDetailsContent] = useState('');
   const [detailsError, setDetailsError] = useState<string | null>(null);
+  const { openChatWithSupportPrompt } = useChat();
 
   const handleGenerateIacClick = () => {
     onGenerateIacDocument();
@@ -149,6 +151,14 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
     } catch (error) {
       console.error('Failed to cancel IaC generation:', error);
     }
+  };
+
+  // Function to handle chat icon click in recommendations cell
+  const handleAiChatClick = (item: EnhancedBestPractice) => {
+    const prompt = `Can you provide more detailed recommendations and instructions for the best practice '${item.name}' of the '${item.pillar}' pillar?`;
+    
+    // Open the chat with support prompt
+    openChatWithSupportPrompt(prompt);
   };
 
   return (
@@ -284,6 +294,20 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
             cell: item => {
               if (!item.relevant) {
                 return 'N/A';
+              }
+              // If there are recommendations, show them with the AI chat button
+              if (!item.applied && item.recommendations) {
+                return (
+                  <SpaceBetween direction="horizontal" size="xs">
+                    {item.recommendations}
+                    <Button
+                      iconName="gen-ai"
+                      variant="inline-icon"
+                      onClick={() => handleAiChatClick(item)}
+                      ariaLabel="Ask AI for more recommendations"
+                    />
+                  </SpaceBetween>
+                );
               }
               return !item.applied && item.recommendations || 'N/A';
             },
