@@ -26,10 +26,54 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isAnalysisComplete, file
     const [isExpanded, setIsExpanded] = useState(false);
     const [animationState, setAnimationState] = useState('');
 
+    // Default and expanded size configurations
+    const defaultSize = {
+        width: 500,
+        height: 500
+    };
+
+    // Track position and size
+    const [position, setPosition] = useState({
+        x: window.innerWidth - 520,
+        y: window.innerHeight - 590
+    });
+    const [size, setSize] = useState({
+        width: defaultSize.width,
+        height: defaultSize.height
+    });
+
+    const expandedSize = {
+        width: window.innerWidth - 40, // 20px margin on each side
+        height: window.innerHeight - 40 // 20px margin on top and bottom
+    };
+
+    // Position calculation for expanded view (center of screen)
+    const expandedPosition = {
+        x: 20,
+        y: 20
+    };
+
+    // Ensure the chat window is always within the viewport
+    const ensureVisiblePosition = (pos: any, windowSize: any) => {
+        const maxX = window.innerWidth - windowSize.width;
+        const maxY = window.innerHeight - windowSize.height;
+
+        return {
+            x: Math.max(0, Math.min(pos.x, maxX)),
+            y: Math.max(0, Math.min(pos.y, maxY))
+        };
+    };
+
     // Handle animation state for opening/closing
     useEffect(() => {
         if (isChatOpen) {
             setAnimationState('entering');
+
+            // Ensure the window is visible when opened
+            const adjustedPosition = ensureVisiblePosition(position, size);
+            if (adjustedPosition.x !== position.x || adjustedPosition.y !== position.y) {
+                setPosition(adjustedPosition);
+            }
         } else {
             // Only set exiting if we were previously open
             if (animationState === 'entering') {
@@ -42,6 +86,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isAnalysisComplete, file
             }
         }
     }, [isChatOpen]);
+
+    // Add window resize listener to keep chat window in viewport
+    useEffect(() => {
+        const handleResize = () => {
+            if (isChatOpen) {
+                // If expanded, update the expanded size and position
+                if (isExpanded) {
+                    setSize({
+                        width: window.innerWidth - 40,
+                        height: window.innerHeight - 40
+                    });
+                    setPosition({
+                        x: 20,
+                        y: 20
+                    });
+                } else {
+                    // For normal mode, ensure the window is visible with current size
+                    const adjustedPosition = ensureVisiblePosition(position, size);
+                    if (adjustedPosition.x !== position.x || adjustedPosition.y !== position.y) {
+                        setPosition(adjustedPosition);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [isChatOpen, isExpanded, position, size]);
 
     // Wrapper function for toggleChat to handle animation
     const handleClose = () => {
@@ -97,37 +169,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isAnalysisComplete, file
         }
     }, [isChatOpen]);
 
-    // Default and expanded size configurations
-    const defaultSize = {
-        width: 500,
-        height: 500
-    };
-
-    // Track position and size
-    const [position, setPosition] = useState({
-        x: window.innerWidth - 520,
-        y: window.innerHeight - 590
-    });
-    const [size, setSize] = useState({
-        width: defaultSize.width,
-        height: defaultSize.height
-    });
-
-    const expandedSize = {
-        width: window.innerWidth - 40, // 20px margin on each side
-        height: window.innerHeight - 40 // 20px margin on top and bottom
-    };
-
-    // Position calculation for expanded view (center of screen)
-    const expandedPosition = {
-        x: 20,
-        y: 20
-    };
-
-    if (!isAnalysisComplete || !isChatOpen) {
-        return null;
-    }
-
     // Toggle expanded state
     const toggleExpanded = () => {
         if (!isExpanded) {
@@ -135,8 +176,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isAnalysisComplete, file
             setPosition(expandedPosition);
             setSize(expandedSize);
         } else {
-            // Collapsing
-            setPosition({ x: window.innerWidth - 520, y: window.innerHeight - 590 });
+            // Collapsing - ensure it's still within viewport
+            const newPosition = { x: window.innerWidth - 520, y: window.innerHeight - 590 };
+            const adjustedPosition = ensureVisiblePosition(newPosition, defaultSize);
+            setPosition(adjustedPosition);
             setSize({ width: defaultSize.width, height: defaultSize.height });
         }
         setIsExpanded(prev => !prev);
@@ -171,29 +214,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isAnalysisComplete, file
         }
     };
 
+    if (!isAnalysisComplete || !isChatOpen) {
+        return null;
+    }
+
     // Don't render anything when not open and not animating
     if (!isChatOpen && animationState !== 'exiting') return null;
 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }} className={`chat-window-animation-container ${animationState}`} data-component="chat-window">
             <Rnd
-                default={{
-                    x: window.innerWidth - 520,
-                    y: window.innerHeight - 590,
-                    width: defaultSize.width,
-                    height: defaultSize.height
-                }}
-                position={position}
-                size={size}
+                size={{ width: size.width, height: size.height }}
+                position={{ x: position.x, y: position.y }}
                 onDragStop={(_, d) => {
-                    setPosition({ x: d.x, y: d.y });
+                    const adjustedPosition = ensureVisiblePosition({ x: d.x, y: d.y }, size);
+                    setPosition(adjustedPosition);
                 }}
                 onResizeStop={(_, __, ref, ___, position) => {
-                    setSize({
+                    const newSize = {
                         width: parseInt(ref.style.width),
                         height: parseInt(ref.style.height)
-                    });
-                    setPosition(position);
+                    };
+                    setSize(newSize);
+
+                    // Ensure position is still valid after resize
+                    const adjustedPosition = ensureVisiblePosition(position, newSize);
+                    setPosition(adjustedPosition);
                 }}
                 minWidth={280}
                 minHeight={320}

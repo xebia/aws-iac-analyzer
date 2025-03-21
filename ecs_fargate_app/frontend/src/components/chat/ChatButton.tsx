@@ -14,7 +14,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ isAnalysisComplete }) =>
   }
 
   // Apply loading class when a message is being processed
-  const buttonClassName = `chat-button ${isLoading ? 'loading' : ''}`;
+  const buttonClassName = "chat-button";
 
   return (
     <button 
@@ -23,6 +23,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ isAnalysisComplete }) =>
       aria-label={isChatOpen ? "Close chat assistant" : "Open chat assistant"}
       title={isChatOpen ? "Close chat assistant" : "Open chat assistant"}
     >
+      {isLoading && <div className="chat-gradient-background"></div>}
       <img src="/aws-wa-logo.png" alt="Chat with Analyzer Assistant" />
     </button>
   );

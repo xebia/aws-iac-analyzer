@@ -11,7 +11,18 @@ It features a modern web application built with React and AWS Cloudscape Design 
 
 This tool provides users with insights into how well their infrastructure code aligns with or deviates from established AWS best practices, offering suggestions for improving cloud architecture designs. Users can also upload supporting documents to provide additional context for more accurate analysis results. For architecture diagrams, it can even generate corresponding IaC templates following AWS best practices.
 
+Additionally, an **interactive Analyzer Assistant chatbot** enables users to ask questions, seek clarification, and receive personalized guidance about analysis results and Well-Architected best practices.
+
 ## Features
+
+---
+- **NEW** ** Interactive Analyzer Assistant chatbot:
+  - Ask questions about analysis results
+  - Get detailed explanations of Well-Architected best practices
+  - Receive personalized guidance for implementation
+  - View conversation history with markdown support
+  - Download or delete chat histories for each analysis
+---
 
 - Upload and analyze Infrastructure as Code templates:
   - CloudFormation (YAML/JSON)
