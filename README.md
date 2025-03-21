@@ -44,7 +44,7 @@ Additionally, an **interactive Analyzer Assistant chatbot** enables users to ask
 
 ![wa_aic_analyzer_screenshot_results](/assets/wa_aic_analyzer_screenshot_results.png)
 
-![wa_aic_analyzer_screenshot_details](/assets/wa_aic_analyzer_screenshot_details.png)
+![wa_aic_analyzer_screenshot_details](/assets/wa_aic_analyzer_screenshot_chat.png)
 
 ![wa_aic_analyzer_screenshot_wa_tool](/assets/wa_aic_analyzer_screenshot_wa_tool.png)
 
