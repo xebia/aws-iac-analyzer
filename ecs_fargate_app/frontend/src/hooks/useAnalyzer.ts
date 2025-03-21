@@ -122,36 +122,44 @@ export const useAnalyzer = () => {
 
   const updateWorkload = async (providedWorkloadId: string | null) => {
     if (!analysisResults) return;
-
+  
     setIsUpdating(true);
     setError(null);
     try {
       let workloadId = providedWorkloadId;
-
+  
       // Create new workload if no workloadId provided
       if (!workloadId) {
         workloadId = await analyzerApi.createWorkload(false);
         setCreatedWorkloadId(workloadId);
         setCanDeleteWorkload(true);
       }
-
+  
       for (const result of analysisResults) {
+        // Find the best practices that are applicable (relevant === true) and selected (applied === true)
         const appliedBestPractices = result.bestPractices
-          .filter(bp => bp.applied)
+          .filter(bp => bp.relevant && bp.applied)
           .map(bp => bp.id);
-
-        if (appliedBestPractices.length > 0) {
+  
+        // Find the best practices that are not applicable (relevant === false)
+        const notApplicableBestPractices = result.bestPractices
+          .filter(bp => !bp.relevant)
+          .map(bp => bp.id);
+  
+        // Only update the answer if there are applicable or non-applicable best practices
+        if (appliedBestPractices.length > 0 || notApplicableBestPractices.length > 0) {
           await analyzerApi.updateWorkload(
             workloadId,
             result.questionId,
-            appliedBestPractices
+            appliedBestPractices,
+            notApplicableBestPractices
           );
         }
       }
-
+  
       const milestoneName = `Review completed on ${new Date().toISOString()}`;
       await analyzerApi.createMilestone(workloadId, milestoneName);
-
+  
       const summary = await analyzerApi.getRiskSummary(workloadId);
       setRiskSummary(summary);
     } catch (err) {

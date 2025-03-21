@@ -84,12 +84,12 @@ export class AnalyzerService {
         this.storageEnabled = this.configService.get<boolean>('storage.enabled', false);
     }
 
-    
+
     // Check if the current model is Claude 3.7 Sonnet
     private isClaudeSonnet37(): boolean {
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
         return modelId && (
-            modelId.includes('anthropic.claude-3-7-sonnet') || 
+            modelId.includes('anthropic.claude-3-7-sonnet') ||
             modelId.includes('us.anthropic.claude-3-7-sonnet')
         );
     }
@@ -97,7 +97,7 @@ export class AnalyzerService {
     // Configure model parameters based on the model type
     private getModelParameters() {
         const isClaudeSonnet37 = this.isClaudeSonnet37();
-        
+
         if (isClaudeSonnet37) {
             return {
                 additionalModelRequestFields: {
@@ -111,12 +111,292 @@ export class AnalyzerService {
                 }
             };
         }
-        
+
         return {
             inferenceConfig: {
                 maxTokens: 4096
             }
         };
+    }
+
+    /**
+     * Chat functionality - allows users to ask questions about their analysis results
+     * @param fileId The ID of the file/analysis to discuss
+     * @param message The user's message
+     * @param userId The user ID for looking up relevant data
+     * @returns A response message from the AI assistant
+     */
+    async chat(fileId: string, message: string, userId: string): Promise<string> {
+        try {
+            if (!fileId || !userId) {
+                throw new Error('File ID and User ID are required for chat');
+            }
+
+            // Get work item and analysis results
+            const workItem = await this.storageService.getWorkItem(userId, fileId);
+
+            if (!workItem) {
+                throw new Error('Work item not found');
+            }
+
+            // Only allow chat if analysis is completed or partial
+            if (workItem.analysisStatus !== 'COMPLETED' && workItem.analysisStatus !== 'PARTIAL') {
+                throw new Error('Analysis must be completed before chatting');
+            }
+
+            // Get analysis results
+            const analysisResults = await this.storageService.getAnalysisResults(userId, fileId);
+
+            if (!analysisResults || !Array.isArray(analysisResults) || analysisResults.length === 0) {
+                throw new Error('No analysis results found for this file');
+            }
+
+            // Check upload mode to determine how to get file content
+            const uploadMode = workItem.uploadMode || FileUploadMode.SINGLE_FILE;
+            const isImageFile = workItem.fileType.startsWith('image/');
+
+            // Declare variables for file content
+            let fileContent;
+            let fileType = workItem.fileType;
+            let contentStr = '';
+
+            // Get appropriate content based on upload mode
+            if (uploadMode === FileUploadMode.SINGLE_FILE) {
+                // Get the original content for single files
+                const result = await this.storageService.getOriginalContent(userId, fileId, false);
+                fileContent = result.data;
+                fileType = result.contentType;
+            } else {
+                // For multiple files or ZIP files, get the packed content
+                try {
+                    contentStr = await this.storageService.getPackedContent(userId, fileId);
+                } catch (error) {
+                    this.logger.warn(`Packed content not found for ${fileId}, falling back to original content`);
+                    // Fall back to original content
+                    const result = await this.storageService.getOriginalContent(userId, fileId, false);
+                    fileContent = result.data;
+                    fileType = result.contentType;
+                }
+            }
+
+            // Prepare analysis context for the LLM
+            const analysisContext = analysisResults.map(result => {
+                return {
+                    pillar: result.pillar,
+                    question: result.question,
+                    bestPractices: result.bestPractices.map(bp => ({
+                        name: bp.name,
+                        relevant: bp.relevant,
+                        applied: bp.applied,
+                        reasonApplied: bp.reasonApplied,
+                        reasonNotApplied: bp.reasonNotApplied,
+                        recommendations: bp.recommendations,
+                    }))
+                };
+            });
+
+            // Retrieve chat history
+            let chatHistory = [];
+            try {
+                chatHistory = await this.storageService.getChatHistory(userId, fileId);
+            } catch (error) {
+                // If chat history doesn't exist, we will start a new conversation
+                this.logger.log('No existing chat history found, starting new conversation');
+            }
+
+            // Prepare the system prompt for the chat
+            const systemPrompt = `You are the Analyzer Assistant, an AWS expert specializing in the AWS Well-Architected Framework and in analyzing Infrastructure As Code (IaC) documents and architecture diagrams.
+      You are helping users understand the analysis results of their infrastructure code according to AWS Well-Architected best practices.
+      
+      YOUR CONTEXT INFORMATION:
+      1. The user uploaded a ${uploadMode === FileUploadMode.SINGLE_FILE ? 'file' : uploadMode === FileUploadMode.MULTIPLE_FILES ? 'multiple files' : 'ZIP project'} that was analyzed against the Well-Architected Framework.
+      2. Below are the analysis results showing which best practices were applied and which weren't.
+      3. You should provide helpful, concise responses that help users understand how to improve their architecture.
+      
+      ANALYSIS RESULTS:
+      ${JSON.stringify(analysisContext, null, 2)}
+      
+      FILE TYPE: ${fileType}
+      UPLOAD MODE: ${uploadMode}
+      
+      Guidelines for your responses:
+      - Be conversational and helpful
+      - Answer questions based on the analysis results provided above
+      - When referring to specific best practices, cite the pillar and best practice name
+      - If you don't know something, say so rather than making up information
+      - Keep responses concise but informative
+      - Avoid mentioning that you're an AI model
+      - Focus on practical, actionable advice
+      - Use the markdown format for your answers`;
+
+            // Create array of messages for conversation
+            const messages: Message[] = [];
+
+            // Add previous messages from chat history to maintain conversation context
+            if (chatHistory && chatHistory.length > 0) {
+                // Convert chat history format to Bedrock message format
+                // We only need the last few messages to stay within context limits
+                const recentMessages = chatHistory.slice(-25); // Last 25 messages
+
+                for (const msg of recentMessages) {
+                    messages.push({
+                        role: msg.isUser ? 'user' : 'assistant',
+                        content: [
+                            {
+                                text: msg.content
+                            }
+                        ]
+                    });
+                }
+            }
+
+            // System message as content block 
+            const systemContentBlock: SystemContentBlock[] = [{
+                text: systemPrompt
+            }];
+
+            // Get model parameters based on model type
+            const modelParams = this.getModelParameters();
+            const bedrockClient = this.awsConfig.createBedrockClient();
+            let response;
+
+            // Handle based on file type and upload mode
+            if (uploadMode === FileUploadMode.SINGLE_FILE && isImageFile) {
+                // Handle single image file
+                let processedContent: string;
+
+                if (Buffer.isBuffer(fileContent)) {
+                    processedContent = `data:${fileType};base64,${fileContent.toString('base64')}`;
+                } else if (typeof fileContent === 'string' && !fileContent.startsWith('data:')) {
+                    processedContent = `data:${fileType};base64,${fileContent}`;
+                } else {
+                    processedContent = fileContent as string;
+                }
+
+                // Extract image data
+                const imageBase64Data = processedContent.split(',')[1];
+                const imageMediaType = processedContent.split(';')[0].split(':')[1];
+                const imageFormat = imageMediaType.split('/')[1]; // Extract format from media type
+
+                // Add the new user message with image content
+                const userMessage: Message = {
+                    role: 'user',
+                    content: [
+                        {
+                            image: {
+                                format: imageFormat as "png" | "jpeg" | "gif" | "webp",
+                                source: {
+                                    bytes: Buffer.from(imageBase64Data, 'base64')
+                                }
+                            }
+                        },
+                        {
+                            text: message
+                        }
+                    ]
+                };
+
+                messages.push(userMessage);
+
+                // Create the Converse command for image
+                const command = new ConverseCommand({
+                    modelId: this.configService.get<string>('aws.bedrock.modelId'),
+                    messages: messages,
+                    system: systemContentBlock,
+                    ...modelParams
+                });
+
+                response = await bedrockClient.send(command);
+            } else {
+                // Handle text-based content (single file, multiple files, or ZIP)
+                let fileContentStr: string;
+
+                // For multiple files or ZIP, use the packed content we already retrieved
+                if (uploadMode !== FileUploadMode.SINGLE_FILE) {
+                    fileContentStr = contentStr;
+                } else {
+                    // For single file, process the content
+                    if (Buffer.isBuffer(fileContent)) {
+                        fileContentStr = fileContent.toString('utf-8');
+                    } else if (typeof fileContent === 'string') {
+                        fileContentStr = fileContent;
+                    } else {
+                        fileContentStr = JSON.stringify(fileContent);
+                    }
+                }
+
+                // For projects or large files, ensure it's not too large
+                const maxContentLength = 500000; // limiting to ~500k characters
+                if (fileContentStr.length > maxContentLength) {
+                    fileContentStr = `${fileContentStr.substring(0, maxContentLength)}... [CONTENT TRUNCATED DUE TO SIZE]`;
+                }
+
+                // Create a message that includes both file content and user question
+                const combinedMessage = `
+      FILE CONTENT:
+      \`\`\`
+      ${fileContentStr}
+      \`\`\`
+      
+      USER QUESTION: ${message}`;
+
+                messages.push({
+                    role: 'user',
+                    content: [
+                        {
+                            text: combinedMessage
+                        }
+                    ]
+                });
+
+                // Create the Converse command for text
+                const command = new ConverseCommand({
+                    modelId: this.configService.get<string>('aws.bedrock.modelId'),
+                    messages: messages,
+                    system: systemContentBlock,
+                    ...modelParams
+                });
+
+                response = await bedrockClient.send(command);
+            }
+
+            // Extract and return the response
+            if (response.output && response.output.message && response.output.message.content) {
+                const content = response.output.message.content;
+                // Handle different content types
+                let responseText = '';
+                for (const block of content) {
+                    if ('text' in block) {
+                        responseText += block.text || '';
+                    }
+                }
+
+                // Add the user message and AI response to chat history
+                chatHistory.push({
+                    id: `user-${Date.now()}`,
+                    content: message,
+                    timestamp: new Date().toISOString(),
+                    isUser: true
+                });
+
+                chatHistory.push({
+                    id: `assistant-${Date.now()}`,
+                    content: responseText,
+                    timestamp: new Date().toISOString(),
+                    isUser: false
+                });
+
+                // Save the updated chat history
+                await this.storageService.storeChatHistory(userId, fileId, chatHistory);
+
+                return responseText;
+            }
+
+            throw new Error('No response generated from AI model');
+        } catch (error) {
+            this.logger.error('Error in chat:', error);
+            throw error;
+        }
     }
 
     private async getFileContent(userId: string, fileId: string): Promise<{ content: string; type: string }> {
@@ -865,7 +1145,7 @@ export class AnalyzerService {
 
                             const bedrockClient = this.awsConfig.createBedrockClient();
                             const modelId = this.configService.get<string>('aws.bedrock.modelId');
-                            
+
                             // Get model parameters based on the model type
                             const modelParams = this.getModelParameters();
 
@@ -937,7 +1217,7 @@ export class AnalyzerService {
 
                             const bedrockClient = this.awsConfig.createBedrockClient();
                             const modelId = this.configService.get<string>('aws.bedrock.modelId');
-                            
+
                             // Get model parameters based on the model type
                             const modelParams = this.getModelParameters();
 
@@ -1063,8 +1343,8 @@ export class AnalyzerService {
             pillar: questionGroup.pillar,
             question: questionGroup.title,
             bestPractices: questionGroup.bestPractices
-          }, null, 2);
-    
+        }, null, 2);
+
         const command = new RetrieveAndGenerateCommand({
             input: {
                 text: `Below <best_practices_to_retrieve> section contains the list of best practices of the question "${question}" in the Well-Architected pillar "${pillar}":
@@ -1096,9 +1376,9 @@ export class AnalyzerService {
                 }
             }
         });
-    
+
         const response = await bedrockAgent.send(command);
-        
+
         // Return as an array with one element to match the expected return type
         return response.output?.text ? [response.output.text] : [];
     }
@@ -1214,7 +1494,7 @@ export class AnalyzerService {
     ): Promise<ModelResponse> {
         const bedrockClient = this.awsConfig.createBedrockClient();
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
-        
+
         // Get model parameters based on the model type
         const modelParams = this.getModelParameters();
 
@@ -1315,7 +1595,7 @@ export class AnalyzerService {
     ): Promise<ModelResponse> {
         const bedrockClient = this.awsConfig.createBedrockClient();
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
-        
+
         // Get model parameters based on the model type
         const modelParams = this.getModelParameters();
 
@@ -1404,7 +1684,7 @@ export class AnalyzerService {
     ): Promise<{ content: string; isCancelled: boolean }> {
         const bedrockClient = this.awsConfig.createBedrockClient();
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
-        
+
         // Get model parameters based on the model type
         const modelParams = this.getModelParameters();
 

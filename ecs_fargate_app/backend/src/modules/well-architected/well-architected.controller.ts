@@ -63,13 +63,18 @@ export class WellArchitectedController {
   @Post('answer/:workloadId')
   async updateAnswer(
     @Param('workloadId') workloadId: string,
-    @Body() body: { questionId: string; selectedChoices: string[] }
+    @Body() body: { 
+      questionId: string; 
+      selectedChoices: string[];
+      notApplicableChoices?: string[];
+    }
   ) {
     try {
       return await this.waService.updateAnswer(
         workloadId,
         body.questionId,
-        body.selectedChoices
+        body.selectedChoices,
+        body.notApplicableChoices || []
       );
     } catch (error) {
       this.logger.error(`Failed to update answer for workload ${workloadId}, for question ${body.questionId}:`, error);

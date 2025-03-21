@@ -66,7 +66,7 @@ export const storageApi = {
           'Content-Type': 'multipart/form-data',
         },
       });
-  
+
       return response.data;
     } catch (error) {
       throw new Error(
@@ -155,6 +155,69 @@ export const storageApi = {
       console.error('Download error:', error);
       throw new Error(
         error instanceof Error ? error.message : 'Failed to download original content'
+      );
+    }
+  },
+
+  // Get chat history
+  async getChatHistory(fileId: string): Promise<any[]> {
+    try {
+      const response = await api.get(`/work-items/${fileId}/chat-history`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get chat history:', error);
+      // Return empty array if there's an error
+      return [];
+    }
+  },
+
+  // Store chat history
+  async storeChatHistory(fileId: string, messages: any[]): Promise<void> {
+    try {
+      const response = await api.post(`/work-items/${fileId}/chat-history`, { messages });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to store chat history:', error);
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to store chat history'
+      );
+    }
+  },
+
+  // Download chat history
+  async downloadChatHistory(fileId: string, fileName: string): Promise<void> {
+    try {
+      const response = await api.get(`/work-items/${fileId}/chat-history/download`, {
+        responseType: 'blob'
+      });
+
+      const blob = new Blob([response.data], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chat_history_${fileName.replace(/\.\w+$/, '')}.json`;
+      document.body.appendChild(a);
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download error:', error);
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to download chat history'
+      );
+    }
+  },
+
+  // Delete chat history
+  async deleteChatHistory(fileId: string): Promise<void> {
+    try {
+      await api.delete(`/work-items/${fileId}/chat-history`);
+    } catch (error) {
+      console.error('Delete error:', error);
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to delete chat history'
       );
     }
   }

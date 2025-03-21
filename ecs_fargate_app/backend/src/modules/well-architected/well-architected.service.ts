@@ -10,6 +10,12 @@ import {
 } from '@aws-sdk/client-wellarchitected';
 import { randomBytes, randomUUID } from 'crypto';
 
+interface ChoiceUpdate {
+  Status: 'SELECTED' | 'NOT_APPLICABLE' | 'UNSELECTED';
+  Reason?: 'OUT_OF_SCOPE' | 'BUSINESS_PRIORITIES' | 'ARCHITECTURE_CONSTRAINTS' | 'OTHER' | 'NONE';
+  Notes?: string;
+}
+
 @Injectable()
 export class WellArchitectedService {
   private readonly logger = new Logger(WellArchitectedService.name);
@@ -48,15 +54,39 @@ export class WellArchitectedService {
     }
   }
 
-  async updateAnswer(workloadId: string, questionId: string, selectedChoices: string[]) {
+  async updateAnswer(
+    workloadId: string, 
+    questionId: string, 
+    selectedChoices: string[],
+    notApplicableChoices: string[] = []
+  ) {
     const waClient = this.awsConfig.createWAClient();
-    const command = new UpdateAnswerCommand({
+    
+    // Create ChoiceUpdates using our defined interface
+    const choiceUpdates: Record<string, ChoiceUpdate> = {};
+    
+    // Add each non-applicable choice to the choiceUpdates object with the string literal
+    notApplicableChoices.forEach(choiceId => {
+      choiceUpdates[choiceId] = { 
+        Status: 'NOT_APPLICABLE'
+      };
+    });
+
+    // Create an UpdateAnswerCommand with the appropriate parameters
+    const params: any = {
       WorkloadId: workloadId,
       LensAlias: this.lensAlias,
       QuestionId: questionId,
       SelectedChoices: selectedChoices,
-      Notes: 'Updated from WA IaC Analyzer app',
-    });
+      Notes: 'Updated from WA IaC Analyzer app'
+    };
+
+    // Only add ChoiceUpdates if there are any NOT_APPLICABLE choices
+    if (Object.keys(choiceUpdates).length > 0) {
+      params.ChoiceUpdates = choiceUpdates;
+    }
+
+    const command = new UpdateAnswerCommand(params);
 
     try {
       return await waClient.send(command);

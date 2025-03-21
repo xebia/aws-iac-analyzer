@@ -13,6 +13,7 @@ import { analyzerApi } from '../services/api';
 import { storageApi } from '../services/storage';
 import { socketService } from '../services/socket';
 import { IaCTemplateSelector } from './IaCTemplateSelector';
+import { Chat } from './chat';
 
 const DEFAULT_PILLARS: WellArchitectedPillar[] = [
   { id: 'operational-excellence', name: 'Operational Excellence', selected: true },
@@ -94,6 +95,9 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     setAnalysisResults,
     setPartialResultsError,
   } = useAnalyzer();
+
+  // Check if analysis is complete and results are available
+  const isAnalysisComplete = Boolean(analysisResults && analysisResults.length > 0);
 
   useEffect(() => {
     const cleanup = socketService.onImplementationProgress((progressData: ImplementationProgress) => {
@@ -893,6 +897,10 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
           ]}
         />
       )}
+      <Chat 
+        isAnalysisComplete={isAnalysisComplete} 
+        fileId={activeWorkItem?.fileId}
+      />
     </SpaceBetween>
   );
 };

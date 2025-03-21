@@ -65,6 +65,7 @@ export const PillarSelector: React.FC<PillarSelectorProps> = ({
         placeholder="Select Well-Architected Pillars"
         selectedAriaLabel="Selected"
         disabled={disabled}
+        expandToViewport={true}
       />
     </FormField>
   );

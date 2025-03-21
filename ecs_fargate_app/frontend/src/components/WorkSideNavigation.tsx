@@ -41,6 +41,15 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [isReloading, setIsReloading] = useState(false);
   const { authState } = useAuth();
+  const [downloadingChatHistoryId, setDownloadingChatHistoryId] = useState<string | null>(null);
+  const [deletingChatHistoryId, setDeletingChatHistoryId] = useState<string | null>(null);
+  const [deleteChatModalVisible, setDeleteChatModalVisible] = useState(false);
+  const [chatToDelete, setChatToDelete] = useState<WorkItem | null>(null);
+
+  // Check if a file has chat history
+  const hasChatHistory = (item: WorkItem): boolean => {
+    return !!item.hasChatHistory;
+  };
 
   const loadWorkItems = useCallback(async () => {
     setIsReloading(true);
@@ -91,8 +100,8 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
     setDownloadingSupportingDocId(item.supportingDocumentId);
     try {
       await storageApi.downloadSupportingDocument(
-        item.supportingDocumentId, 
-        item.fileId, 
+        item.supportingDocumentId,
+        item.fileId,
         item.supportingDocumentName
       );
     } catch (error) {
@@ -113,7 +122,62 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
     if (authState.isAuthenticated) {
       loadWorkItems();
     }
-  }, [authState.isAuthenticated]);
+  }, [authState.isAuthenticated, loadWorkItems]);
+
+  // Handle chat history download and deletion
+  const handleDownloadChatHistory = async (item: WorkItem, event: any) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Keep section expanded without loading results
+    onItemSelect(item, false);
+
+    setDownloadingChatHistoryId(item.fileId);
+    try {
+      await storageApi.downloadChatHistory(item.fileId, item.fileName);
+    } catch (error) {
+      console.error('Failed to download chat history:', error);
+    } finally {
+      setDownloadingChatHistoryId(null);
+    }
+  };
+
+  const handleDeleteChatHistory = async (item: WorkItem, event: any) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Keep section expanded without loading results
+    onItemSelect(item, false);
+
+    // Show modal instead of browser confirm
+    setChatToDelete(item);
+    setDeleteChatModalVisible(true);
+  };
+
+  const confirmChatDelete = async () => {
+    if (!chatToDelete) return;
+
+    setDeletingChatHistoryId(chatToDelete.fileId);
+    try {
+      await storageApi.deleteChatHistory(chatToDelete.fileId);
+      
+      // After deletion, reload the work items to get updated hasChatHistory flag
+      await loadWorkItems();
+      
+      // Dispatch a custom event to notify the ChatContext about the deletion
+      const chatDeletedEvent = new CustomEvent('chatHistoryDeleted', { 
+        detail: { fileId: chatToDelete.fileId }
+      });
+      document.dispatchEvent(chatDeletedEvent);
+      
+      setDeleteChatModalVisible(false);
+      setChatToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete chat history:', error);
+    } finally {
+      setDeletingChatHistoryId(null);
+    }
+  };
 
   const handleDelete = async (item: WorkItem) => {
     setItemToDelete(item);
@@ -242,6 +306,36 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
         }] : []),
         {
           type: 'link' as const,
+          text: 'Chat history:',
+          href: `/chat-history/${item.fileId}`,
+          key: `chat-history-${item.fileId}`,
+          info: (
+            <SpaceBetween direction="horizontal" size="xxxs">
+              <Button
+                iconName="download"
+                ariaLabel="Download chat history"
+                variant="inline-icon"
+                loading={downloadingChatHistoryId === item.fileId}
+                disabled={!hasChatHistory(item)}
+                onClick={(e: any) => handleDownloadChatHistory(item, e)}
+              >
+                Download
+              </Button>
+              <Button
+                iconName="remove"
+                ariaLabel="Delete chat history"
+                variant="inline-icon"
+                loading={deletingChatHistoryId === item.fileId}
+                disabled={!hasChatHistory(item)}
+                onClick={(e: any) => handleDeleteChatHistory(item, e)}
+              >
+                Delete
+              </Button>
+            </SpaceBetween>
+          )
+        },
+        {
+          type: 'link' as const,
           text: 'Load results:',
           href: `/load/${item.fileId}`,
           key: `load-${item.fileId}`,
@@ -274,7 +368,7 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
           key: `delete-${item.fileId}`,
           info: (
             <Button
-              iconName="close"
+              iconName="remove"
               onClick={(e: any) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -374,6 +468,41 @@ export const WorkSideNavigation = forwardRef<WorkSideNavigationRef, WorkSideNavi
               </StatusIndicator>
             </SpaceBetween>
           )}
+        </SpaceBetween>
+      </Modal>
+
+      <Modal
+        visible={deleteChatModalVisible}
+        onDismiss={() => setDeleteChatModalVisible(false)}
+        header="Delete Chat History"
+        footer={
+          <Box float="right">
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button
+                key="cancel-button"
+                onClick={() => setDeleteChatModalVisible(false)}
+                variant="link"
+                disabled={deletingChatHistoryId !== null}
+              >
+                Cancel
+              </Button>
+              <Button
+                key="delete-button"
+                onClick={confirmChatDelete}
+                variant="primary"
+                loading={deletingChatHistoryId !== null}
+              >
+                Delete
+              </Button>
+            </SpaceBetween>
+          </Box>
+        }
+      >
+        <SpaceBetween size="m">
+          <Box key="delete-message" variant="p">
+            Are you sure you want to delete the chat history for "{chatToDelete?.fileName}"?
+            This action cannot be undone.
+          </Box>
         </SpaceBetween>
       </Modal>
     </>

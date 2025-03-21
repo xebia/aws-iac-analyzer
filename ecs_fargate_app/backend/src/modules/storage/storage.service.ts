@@ -62,7 +62,165 @@ export class StorageService {
       iacDocument: `${prefix}/iac_templates/generated_template`,
       packedContent: `${prefix}/packed_content`,
       supportingDocument: `${prefix}/supporting_document`,
+      chatHistory: `${prefix}/chat_history.json`,
     };
+  }
+
+  // Store chat history
+  async storeChatHistory(
+    userId: string,
+    fileId: string,
+    messages: any[]
+  ): Promise<void> {
+    if (!this.config.enabled) {
+      throw new Error('Storage is not enabled');
+    }
+
+    const s3Client = this.awsConfig.createS3Client();
+    const dynamoClient = this.awsConfig.createDynamoDBClient();
+    const s3Locations = this.getS3Locations(userId, fileId);
+
+    try {
+      // Only store chat history if there are messages
+      if (messages && messages.length > 0) {
+        const upload = new Upload({
+          client: s3Client,
+          params: {
+            Bucket: this.config.bucket,
+            Key: s3Locations.chatHistory,
+            Body: JSON.stringify(messages),
+            ContentType: 'application/json',
+          },
+        });
+  
+        await upload.done();
+  
+        // Set hasChatHistory to true
+        await dynamoClient.send(
+          new UpdateItemCommand({
+            TableName: this.config.table,
+            Key: marshall({
+              userId,
+              fileId,
+            }),
+            UpdateExpression: 'SET hasChatHistory = :hasChat',
+            ExpressionAttributeValues: marshall({
+              ':hasChat': true,
+            }),
+          })
+        );
+      } else {
+        // If no messages, make sure hasChatHistory is false
+        await dynamoClient.send(
+          new UpdateItemCommand({
+            TableName: this.config.table,
+            Key: marshall({
+              userId,
+              fileId,
+            }),
+            UpdateExpression: 'SET hasChatHistory = :hasChat',
+            ExpressionAttributeValues: marshall({
+              ':hasChat': false,
+            }),
+          })
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error storing chat history:', error);
+      throw new Error('Failed to store chat history');
+    }
+  }
+
+  // Retrieve chat history
+  async getChatHistory(userId: string, fileId: string): Promise<any[]> {
+    if (!this.config.enabled) {
+      throw new Error('Storage is not enabled');
+    }
+
+    const s3Client = this.awsConfig.createS3Client();
+    const s3Locations = this.getS3Locations(userId, fileId);
+
+    try {
+      const result = await s3Client.send(
+        new GetObjectCommand({
+          Bucket: this.config.bucket,
+          Key: s3Locations.chatHistory,
+        })
+      );
+
+      const content = await result.Body.transformToString();
+      return JSON.parse(content);
+    } catch (error) {
+      // If it's a NoSuchKey error, the chat history doesn't exist
+      if (error.name === 'NoSuchKey') {
+        // Also ensure the hasChatHistory flag is false in the WorkItem
+        try {
+          const dynamoClient = this.awsConfig.createDynamoDBClient();
+          await dynamoClient.send(
+            new UpdateItemCommand({
+              TableName: this.config.table,
+              Key: marshall({
+                userId,
+                fileId,
+              }),
+              UpdateExpression: 'SET hasChatHistory = :hasChat',
+              ExpressionAttributeValues: marshall({
+                ':hasChat': false,
+              }),
+            })
+          );
+        } catch (updateError) {
+          this.logger.warn('Error updating hasChatHistory flag:', updateError);
+        }
+        
+        return [];
+      }
+      
+      this.logger.error('Error getting chat history:', error);
+      throw new Error('Failed to get chat history');
+    }
+  }
+
+  // Delete chat history
+  async deleteChatHistory(userId: string, fileId: string): Promise<void> {
+    if (!this.config.enabled) {
+      throw new Error('Storage is not enabled');
+    }
+
+    const s3Client = this.awsConfig.createS3Client();
+    const dynamoClient = this.awsConfig.createDynamoDBClient();
+    const s3Locations = this.getS3Locations(userId, fileId);
+
+    try {
+      await s3Client.send(
+        new DeleteObjectsCommand({
+          Bucket: this.config.bucket,
+          Delete: {
+            Objects: [
+              { Key: s3Locations.chatHistory }
+            ],
+          },
+        })
+      );
+
+      // Update the work item to set hasChatHistory to false
+      await dynamoClient.send(
+        new UpdateItemCommand({
+          TableName: this.config.table,
+          Key: marshall({
+            userId,
+            fileId,
+          }),
+          UpdateExpression: 'SET hasChatHistory = :hasChat',
+          ExpressionAttributeValues: marshall({
+            ':hasChat': false,
+          }),
+        })
+      );
+    } catch (error) {
+      this.logger.error('Error deleting chat history:', error);
+      throw new Error('Failed to delete chat history');
+    }
   }
 
   // Method to store supporting document
@@ -82,7 +240,7 @@ export class StorageService {
     const supportingDocId = this.createFileIdHash(`supporting_${mainFileId}_${fileName}_${Date.now().toString()}`);
     const timestamp = new Date().toISOString();
     const s3Client = this.awsConfig.createS3Client();
-    
+
     // Use the main file's S3 prefix for organization
     const mainFileLocations = this.getS3Locations(userId, mainFileId);
     const supportingDocKey = `${userId}/${mainFileId}/supporting_documents/${supportingDocId}`;
@@ -145,7 +303,7 @@ export class StorageService {
 
   // Method to get supporting document
   async getSupportingDocument(
-    userId: string, 
+    userId: string,
     mainFileId: string,
     supportingDocId: string
   ): Promise<{ data: Buffer; contentType: string; fileName: string }> {
@@ -154,11 +312,11 @@ export class StorageService {
     }
 
     const s3Client = this.awsConfig.createS3Client();
-    
+
     try {
       // Get the main work item to validate the supporting document relationship
       const workItem = await this.getWorkItem(userId, mainFileId);
-      
+
       if (!workItem.supportingDocumentId || !workItem.supportingDocumentAdded) {
         throw new Error('No supporting document available for this work item');
       }
@@ -169,7 +327,7 @@ export class StorageService {
 
       // Get the supporting document from S3
       const supportingDocKey = `${userId}/${mainFileId}/supporting_documents/${supportingDocId}`;
-      
+
       const result = await s3Client.send(
         new GetObjectCommand({
           Bucket: this.config.bucket,
@@ -179,7 +337,7 @@ export class StorageService {
 
       const contentType = result.ContentType || 'application/octet-stream';
       const response = await result.Body.transformToByteArray();
-      
+
       return {
         data: Buffer.from(response),
         contentType,
@@ -229,7 +387,7 @@ export class StorageService {
     try {
       // Process the zip file
       const packedProject = await this.projectPacker.processZipFile(buffer, filename);
-      
+
       // Create file ID
       const fileId = this.createFileIdHash(filename + Date.now().toString());
       const timestamp = new Date().toISOString();
@@ -300,16 +458,16 @@ export class StorageService {
 
       // Create zip from multiple files
       const zipBuffer = await this.projectPacker.createZipFromFiles(filesWithType);
-      
+
       // Process the created zip
       const packedProject = await this.projectPacker.processMultipleFiles(filesWithType);
-      
+
       // Create file ID using the first filename and timestamp
       const fileId = this.createFileIdHash(files[0].filename + Date.now().toString());
       const timestamp = new Date().toISOString();
-      
+
       // Create combined filename
-      const combinedFilename = files.length < 2 
+      const combinedFilename = files.length < 2
         ? files.map(f => f.filename).join('_')
         : `${files[0].filename}_and_${files.length - 1}_more_files.zip`;
 
@@ -366,7 +524,7 @@ export class StorageService {
    */
   private async storeWorkItemInDynamoDB(workItem: WorkItem): Promise<void> {
     const dynamoClient = this.awsConfig.createDynamoDBClient();
-    
+
     try {
       await dynamoClient.send(
         new PutItemCommand({
@@ -864,11 +1022,11 @@ export class StorageService {
     try {
       // Get the work item to check for upload mode
       const workItem = await this.getWorkItem(userId, fileId);
-      
+
       // If it's a multi-file or zip upload mode and not for download, get packed content
-      if ((workItem.uploadMode === FileUploadMode.MULTIPLE_FILES || 
-           workItem.uploadMode === FileUploadMode.ZIP_FILE) && 
-          !forDownload) {
+      if ((workItem.uploadMode === FileUploadMode.MULTIPLE_FILES ||
+        workItem.uploadMode === FileUploadMode.ZIP_FILE) &&
+        !forDownload) {
         try {
           const packedContent = await this.getPackedContent(userId, fileId);
           return {

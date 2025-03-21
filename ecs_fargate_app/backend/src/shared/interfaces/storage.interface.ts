@@ -44,6 +44,9 @@ export interface WorkItem {
   supportingDocumentDescription?: string; // Description of the supporting document
   supportingDocumentName?: string;  // Name of the supporting document
   supportingDocumentType?: string;  // MIME type of the supporting document
+
+  // Chat history flag
+  hasChatHistory?: boolean;
 }
 
 export interface WorkItemUpdate {
@@ -77,6 +80,7 @@ export interface S3Locations {
   iacDocument: string;
   packedContent?: string;
   supportingDocument?: string;
+  chatHistory: string;
 }
 
 export interface StorageConfig {
