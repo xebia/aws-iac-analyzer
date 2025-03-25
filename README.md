@@ -106,6 +106,17 @@ Once complete, you'll find a new CloudFormation stack named **WA-IaC-Analyzer-{r
 
 3. Access your deployed application using the URL from the CloudFormation outputs (or your CNAME or Alias pointing to the ALB)
 
+#### Troubleshooting
+
+If you encounter issues during deployment, you can check the deployment logs in CloudWatch:
+
+- Log Group: `iac-deployment-logs-<region>-<unique-id>`
+  - This log group contains all deployment steps and actions
+  - Log Stream `{instance_id}-user-data`: Contains deployment instance initialization and setup logs
+  - Log Stream `{instance_id}-deploy`: Contains the complete Well-Architected IaC Analyzer deployment logs
+
+You can also find a direct link to these logs in the Outputs tab of your CloudFormation deployment stack.
+
 ### Option 2: Using a Deployment Script
 
 <details>
