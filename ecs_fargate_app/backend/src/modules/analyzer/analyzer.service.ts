@@ -114,7 +114,8 @@ export class AnalyzerService {
 
         return {
             inferenceConfig: {
-                maxTokens: 4096
+                maxTokens: 4096,
+                temperature: 0.7
             }
         };
     }
@@ -204,30 +205,12 @@ export class AnalyzerService {
                 this.logger.log('No existing chat history found, starting new conversation');
             }
 
-            // Prepare the system prompt for the chat
-            const systemPrompt = `You are the Analyzer Assistant, an AWS expert specializing in the AWS Well-Architected Framework and in analyzing Infrastructure As Code (IaC) documents and architecture diagrams.
-      You are helping users understand the analysis results of their infrastructure code according to AWS Well-Architected best practices.
-      
-      YOUR CONTEXT INFORMATION:
-      1. The user uploaded a ${uploadMode === FileUploadMode.SINGLE_FILE ? 'file' : uploadMode === FileUploadMode.MULTIPLE_FILES ? 'multiple files' : 'ZIP project'} that was analyzed against the Well-Architected Framework.
-      2. Below are the analysis results showing which best practices were applied and which weren't.
-      3. You should provide helpful, concise responses that help users understand how to improve their architecture.
-      
-      ANALYSIS RESULTS:
-      ${JSON.stringify(analysisContext, null, 2)}
-      
-      FILE TYPE: ${fileType}
-      UPLOAD MODE: ${uploadMode}
-      
-      Guidelines for your responses:
-      - Be conversational and helpful
-      - Answer questions based on the analysis results provided above
-      - When referring to specific best practices, cite the pillar and best practice name
-      - If you don't know something, say so rather than making up information
-      - Keep responses concise but informative
-      - Avoid mentioning that you're an AI model
-      - Focus on practical, actionable advice
-      - Use the markdown format for your answers`;
+            // Use the chat system prompt from the prompts directory
+            const systemPrompt = Prompts.buildChatSystemPrompt(
+                uploadMode,
+                analysisContext,
+                fileType
+            );
 
             // Create array of messages for conversation
             const messages: Message[] = [];
@@ -1339,24 +1322,10 @@ export class AnalyzerService {
         const bedrockAgent = this.awsConfig.createBedrockAgentClient();
         const knowledgeBaseId = this.configService.get<string>('aws.bedrock.knowledgeBaseId');
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
-        const bestPracticesJson = JSON.stringify({
-            pillar: questionGroup.pillar,
-            question: questionGroup.title,
-            bestPractices: questionGroup.bestPractices
-        }, null, 2);
 
         const command = new RetrieveAndGenerateCommand({
             input: {
-                text: `Below <best_practices_to_retrieve> section contains the list of best practices of the question "${question}" in the Well-Architected pillar "${pillar}":
-        <best_practices_to_retrieve>
-        ${bestPracticesJson}
-        </best_practices_to_retrieve>
-        For each best practice provide:
-        - Name of the Best Practice
-        - Level of risk exposed if this best practice is not established
-        - Implementation guidance details
-        - List common anti-patterns (if any)
-        - Does this best practice directly relates to AWS resources, configurations, architecture patterns, or technical implementations? Or, does it primarily concerns organizational processes, team structures, or governance?`,
+                text: Prompts.buildKnowledgeBaseInputPrompt(question, pillar, questionGroup),
             },
             retrieveAndGenerateConfiguration: {
                 type: "KNOWLEDGE_BASE",
@@ -1369,8 +1338,14 @@ export class AnalyzerService {
                         },
                     },
                     generationConfiguration: {
+                        inferenceConfig: {
+                            textInferenceConfig: {
+                                maxTokens: 4096,
+                                temperature: 0.7
+                            }
+                        },
                         promptTemplate: {
-                            textPromptTemplate: "You are an AWS Well-Architected Framework expert. Using the following retrieved information about AWS Well-Architected best practices:\n\n$search_results$\n\nAnswer the following query:\n\n${input}\n\nProvide a comprehensive response that covers each best practice, its associated risk level, implementation guidance and a list of common anti-patterns (if any). Format your response clearly with proper headings and bullet points such as:\n\n## <Best Practice ID : Best Practice Name> (e.g. OPS01-BP01: Evaluate External Customer Needs)\n\n**Risk Level**: <Associated risk level>\n\n**Implementation Guidance**:\n\n<bullet points with implementation guidance details>\n\n**Common anti-patterns**:\n\n<bullet points with list common anti-patterns (if any)>\n\n**Relationship**: <Answers to the mentioned question Does this best practice directly relates to AWS resources, configurations, architecture patterns, or technical implementations? Or, does it primarily concerns organizational processes, team structures, or governance?>\n\n**Technical Relevancy score:** <1 to 10, where 1 is not related at all to AWS resources, configurations, architecture patterns, or technical implementations while 10 is fully related to them>"
+                            textPromptTemplate: Prompts.buildKnowledgeBasePromptTemplate()
                         }
                     }
                 }
