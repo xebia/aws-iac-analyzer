@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   StatusIndicator,
@@ -8,6 +8,9 @@ import {
   Header,
   KeyValuePairs,
   ButtonDropdown,
+  Badge,
+  Link,
+  Modal,
 } from '@cloudscape-design/components';
 import { HelpButton } from './utils/HelpButton';
 import { RiskSummary as RiskSummaryType, RiskSummaryProps } from '../types';
@@ -23,12 +26,15 @@ export const RiskSummary: React.FC<RiskSummaryProps> = ({
   isGeneratingReport,
   isDeleting,
   canDeleteWorkload,
-  hasProvidedWorkloadId
+  hasProvidedWorkloadId,
+  currentWorkloadId,
+  awsRegion
 }) => {
   const totalHighRisks = summary?.reduce((acc, s) => acc + s.highRisks, 0) ?? 0;
   const totalMediumRisks = summary?.reduce((acc, s) => acc + s.mediumRisks, 0) ?? 0;
   const totalQuestions = summary?.reduce((acc, s) => acc + s.totalQuestions, 0) ?? 0;
   const totalAnswered = summary?.reduce((acc, s) => acc + s.answeredQuestions, 0) ?? 0;
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const dropdownItems = [
     {
@@ -49,9 +55,15 @@ export const RiskSummary: React.FC<RiskSummaryProps> = ({
         onGenerateReport();
         break;
       case 'delete-workload':
-        onDeleteWorkload();
+        setDeleteModalVisible(true);
         break;
     }
+  };
+
+  // Handler for confirming deletion
+  const confirmDelete = () => {
+    onDeleteWorkload();
+    setDeleteModalVisible(false);
   };
 
   return (
@@ -60,23 +72,38 @@ export const RiskSummary: React.FC<RiskSummaryProps> = ({
         variant="stacked"
       >
         <KeyValuePairs
-          columns={3}
+          columns={4}
           items={[
             {
+              label: "Workload ID",
+              value: currentWorkloadId ? (
+                <SpaceBetween direction="horizontal" size="xxxs" alignItems="center">
+                  <Badge color="blue">{currentWorkloadId}</Badge>
+                  {currentWorkloadId && awsRegion && (
+                    <Link
+                      external
+                      href={`https://${awsRegion}.console.aws.amazon.com/wellarchitected/home?region=${awsRegion}#/workload/${currentWorkloadId}/overview`}
+                      variant="info"
+                    />
+                  )}
+                </SpaceBetween>
+              ) : <Badge color="grey">No Workload ID associated</Badge>
+            },
+            {
               label: "Questions Answered",
-              value: isRefreshing || isUpdating ?
+              value: isRefreshing || isUpdating || isDeleting ?
                 <StatusIndicator type="loading">Loading</StatusIndicator> :
                 <StatusIndicator type="info">{totalAnswered}/{totalQuestions}</StatusIndicator>
             },
             {
               label: "High Risks",
-              value: isRefreshing || isUpdating ?
+              value: isRefreshing || isUpdating || isDeleting ?
                 <StatusIndicator type="loading">Loading</StatusIndicator> :
                 <StatusIndicator type="error">{totalHighRisks}</StatusIndicator>
             },
             {
               label: "Medium Risks",
-              value: isRefreshing || isUpdating ?
+              value: isRefreshing || isUpdating || isDeleting ?
                 <StatusIndicator type="loading">Loading</StatusIndicator> :
                 <StatusIndicator type="warning">{totalMediumRisks}</StatusIndicator>
             }
@@ -98,7 +125,7 @@ export const RiskSummary: React.FC<RiskSummaryProps> = ({
           { id: 'high', header: 'High Risks', cell: item => item.highRisks },
           { id: 'medium', header: 'Medium Risks', cell: item => item.mediumRisks },
         ]}
-        loading={isRefreshing || isUpdating}
+        loading={isRefreshing || isUpdating || isDeleting}
         loadingText="Loading risk summary data..."
         items={summary || []}
         header={
@@ -122,7 +149,7 @@ export const RiskSummary: React.FC<RiskSummaryProps> = ({
                   variant="icon"
                   onClick={onRefresh}
                   loading={isRefreshing}
-                  disabled={!summary || isUpdating}
+                  disabled={!summary || isUpdating || isDeleting}
                 />
               </SpaceBetween>
             }
@@ -132,6 +159,40 @@ export const RiskSummary: React.FC<RiskSummaryProps> = ({
           </Header>
         }
       />
+      <Modal
+        visible={deleteModalVisible}
+        onDismiss={() => setDeleteModalVisible(false)}
+        header="Delete Well-Architected Tool Workload"
+        footer={
+          <SpaceBetween direction="horizontal" size="xs">
+            <Button
+              onClick={() => setDeleteModalVisible(false)}
+              variant="link"
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              variant="primary"
+              loading={isDeleting}
+            >
+              Delete
+            </Button>
+          </SpaceBetween>
+        }
+      >
+        <SpaceBetween size="m">
+          <div>
+            Are you sure you want to delete the workload with ID "{currentWorkloadId}"?
+            This action cannot be undone.
+          </div>
+          <div>
+            <strong>Note:</strong> This will only delete the workload in the AWS Well-Architected Tool. 
+            Your analysis results and recommendations in this application will remain available.
+          </div>
+        </SpaceBetween>
+      </Modal>
     </div>
   );
 };
