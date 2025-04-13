@@ -429,16 +429,16 @@ class WAGenAIStack(Stack):
             point_in_time_recovery=True,
         )
 
-        # Add GSI for status queries
-        analysis_metadata_table.add_global_secondary_index(
-            index_name="StatusIndex",
+        # Create DynamoDB table for lens metadata
+        lens_metadata_table = dynamodb.Table(
+            self,
+            "LensMetadataTable",
             partition_key=dynamodb.Attribute(
-                name="userId", type=dynamodb.AttributeType.STRING
+                name="lensAlias", type=dynamodb.AttributeType.STRING
             ),
-            sort_key=dynamodb.Attribute(
-                name="analysisStatus", type=dynamodb.AttributeType.STRING
-            ),
-            projection_type=dynamodb.ProjectionType.ALL,
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            point_in_time_recovery=True,
         )
 
         # Create S3 bucket where well architected reference docs are stored
@@ -456,6 +456,7 @@ class WAGenAIStack(Stack):
             "uploadwellarchitecteddocs",
             sources=[s3deploy.Source.asset("ecs_fargate_app/well_architected_docs")],
             destination_bucket=wafrReferenceDocsBucket,
+            destination_key_prefix="wellarchitected",
         )
 
         WA_DOCS_BUCKET_NAME = wafrReferenceDocsBucket.bucket_name
@@ -559,6 +560,7 @@ class WAGenAIStack(Stack):
                 "DATA_SOURCE_ID": kbDataSource.data_source_id,
                 "WA_DOCS_BUCKET_NAME": wafrReferenceDocsBucket.bucket_name,
                 "WORKLOAD_ID": workload_cr.get_response_field("WorkloadId"),
+                "LENS_METADATA_TABLE": lens_metadata_table.table_name,
             },
             timeout=Duration.minutes(15),
         )
@@ -578,10 +580,17 @@ class WAGenAIStack(Stack):
                     "wellarchitected:GetLensReview",
                     "wellarchitected:ListAnswers",
                     "wellarchitected:UpgradeLensReview",
+                    "wellarchitected:AssociateLenses",
+                    "wellarchitected:DisassociateLenses",
                 ],
                 resources=["*"],
             )
         )
+
+        # Grant Lambda access to the lens metadata table
+        lens_metadata_table.grant_read_write_data(kb_lambda_synchronizer)
+
+        # Grant Lambda access to the WA docs bucket
         wafrReferenceDocsBucket.grant_put(kb_lambda_synchronizer)
 
         # Create EventBridge rule to trigger KbLambdaSynchronizer weekly on Mondays
@@ -648,6 +657,7 @@ class WAGenAIStack(Stack):
                     "wellarchitected:UpdateAnswer",
                     "wellarchitected:CreateMilestone",
                     "wellarchitected:GetLensReviewReport",
+                    "wellarchitected:AssociateLenses",
                 ],
                 resources=["*"],
             )
@@ -729,6 +739,21 @@ class WAGenAIStack(Stack):
                 resources=[
                     analysis_metadata_table.table_arn,
                     f"{analysis_metadata_table.table_arn}/index/*",
+                ],
+            )
+        )
+
+        # Grant permissions to scan the lens metadata table
+        app_execute_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "dynamodb:Scan",
+                    "dynamodb:GetItem",
+                    "dynamodb:Query",
+                ],
+                resources=[
+                    lens_metadata_table.table_arn,
+                    f"{lens_metadata_table.table_arn}/index/*",
                 ],
             )
         )
@@ -972,6 +997,9 @@ class WAGenAIStack(Stack):
         backend_container.add_environment(
             "ANALYSIS_METADATA_TABLE", analysis_metadata_table.table_name
         )
+        backend_container.add_environment(
+            "LENS_METADATA_TABLE", lens_metadata_table.table_name
+        )
 
         # Create the backend service
         backend_service = ecs.FargateService(
@@ -987,6 +1015,89 @@ class WAGenAIStack(Stack):
 
         # Add service discovery
         backend_service.enable_cloud_map(cloud_map_namespace=namespace, name="backend")
+
+        # Custom resource to trigger the KB Lambda synchronizer during deployment
+        kb_lambda_trigger_cr = cr.AwsCustomResource(
+            self,
+            "KbLambdaTrigger",
+            on_create=cr.AwsSdkCall(
+                service="Lambda",
+                action="invoke",
+                parameters={
+                    "FunctionName": kb_lambda_synchronizer.function_name,
+                    "InvocationType": "Event",  # Asynchronous invocation
+                },
+                physical_resource_id=cr.PhysicalResourceId.of(
+                    "KbLambdaSynchronizerTrigger"
+                ),
+            ),
+            # Use explicit IAM policy statement instead of from_sdk_calls
+            policy=cr.AwsCustomResourcePolicy.from_statements(
+                [
+                    iam.PolicyStatement(
+                        actions=["lambda:InvokeFunction"],
+                        resources=[kb_lambda_synchronizer.function_arn],
+                    )
+                ]
+            ),
+        )
+
+        # Migration Lambda function for transitioning from single-lens to multi-lens storage structure
+        # The new multi-lenses support introduced on 14-April-2025 is a breaking change. This function is meant to support a seamless transition from previous single-lens (wellarchitected) storage structure to the new multi-lens structure.
+        # The Lambda will only run at cdk deployment time once and only for deployments where the old single-lens structure is detected.
+        migration_lambda = lambda_.Function(
+            self,
+            "MigrationLambda",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="migration.handler",
+            code=lambda_.Code.from_asset(
+                "ecs_fargate_app/lambda_migration",
+                bundling=cdk.BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        "pip install --no-cache -r requirements.txt -t /asset-output && cp -au . /asset-output",
+                    ],
+                ),
+            ),
+            environment={
+                "ANALYSIS_METADATA_TABLE": analysis_metadata_table.table_name,
+                "ANALYSIS_STORAGE_BUCKET": analysis_storage_bucket.bucket_name,
+                "WA_DOCS_BUCKET_NAME": wafrReferenceDocsBucket.bucket_name,
+            },
+            timeout=Duration.minutes(15),
+        )
+
+        # Grant DynamoDB permissions to migration Lambda
+        analysis_metadata_table.grant_read_write_data(migration_lambda)
+
+        # Grant S3 permissions for both buckets to migration Lambda
+        analysis_storage_bucket.grant_read_write(migration_lambda)
+        wafrReferenceDocsBucket.grant_read_write(migration_lambda)
+
+        # Create a custom resource to trigger migration Lambda after KB synchronization
+        migration_trigger_cr = cr.AwsCustomResource(
+            self,
+            "MigrationTrigger",
+            on_create=cr.AwsSdkCall(
+                service="Lambda",
+                action="invoke",
+                parameters={
+                    "FunctionName": migration_lambda.function_name,
+                    "InvocationType": "Event",
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("MigrationLambdaTrigger"),
+            ),
+            policy=cr.AwsCustomResourcePolicy.from_statements(
+                [
+                    iam.PolicyStatement(
+                        actions=["lambda:InvokeFunction"],
+                        resources=[migration_lambda.function_arn],
+                    )
+                ]
+            ),
+        )
 
         # Conditionally create stack cleanup resources if auto_cleanup is enabled
         if auto_cleanup:
@@ -1068,6 +1179,14 @@ class WAGenAIStack(Stack):
             description="DynamoDB table for analysis metadata",
         )
 
+        # Output lens metadata table name
+        cdk.CfnOutput(
+            self,
+            "LensMetadataTableName",
+            value=lens_metadata_table.table_name,
+            description="DynamoDB table for lens metadata",
+        )
+
         # Node dependencies
         kbDataSource.node.add_dependency(wafrReferenceDocsBucket)
         ingestion_job_cr.node.add_dependency(kb)
@@ -1075,3 +1194,14 @@ class WAGenAIStack(Stack):
         kb_lambda_synchronizer.node.add_dependency(kbDataSource)
         kb_lambda_synchronizer.node.add_dependency(wafrReferenceDocsBucket)
         kb_lambda_synchronizer.node.add_dependency(workload_cr)
+
+        kb_lambda_trigger_cr.node.add_dependency(kb_lambda_synchronizer)
+        kb_lambda_trigger_cr.node.add_dependency(kb)
+        kb_lambda_trigger_cr.node.add_dependency(kbDataSource)
+        kb_lambda_trigger_cr.node.add_dependency(wafrReferenceDocsBucket)
+        kb_lambda_trigger_cr.node.add_dependency(workload_cr)
+
+        migration_trigger_cr.node.add_dependency(kb_lambda_trigger_cr)
+        migration_lambda.node.add_dependency(analysis_metadata_table)
+        migration_lambda.node.add_dependency(analysis_storage_bucket)
+        migration_lambda.node.add_dependency(wafrReferenceDocsBucket)
