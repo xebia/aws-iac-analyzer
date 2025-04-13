@@ -1089,15 +1089,12 @@ class WAGenAIStack(Stack):
                 },
                 physical_resource_id=cr.PhysicalResourceId.of("MigrationLambdaTrigger"),
             ),
-            policy=cr.AwsCustomResourcePolicy.from_statements(
-                [
-                    iam.PolicyStatement(
-                        actions=["lambda:InvokeFunction"],
-                        resources=[migration_lambda.function_arn],
-                    )
-                ]
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
             ),
         )
+
+        migration_lambda.grant_invoke(migration_trigger_cr)
 
         # Conditionally create stack cleanup resources if auto_cleanup is enabled
         if auto_cleanup:
