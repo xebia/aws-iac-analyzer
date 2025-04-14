@@ -13,6 +13,19 @@ const api = axios.create({
 const handleError = (error: unknown) => {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<{ message: string }>;
+    
+    // Check for network interruption errors
+    if (axiosError.message.includes('Network Error') || 
+        axiosError.message.includes('ERR_NETWORK') ||
+        axiosError.code === 'ERR_NETWORK' ||
+        !axiosError.response) {
+      return new Error(
+        'NETWORK_INTERRUPTION: Network connection was interrupted. ' +
+        'Your analysis is likely still running in the background. ' +
+        'Please check the side navigation panel to load your results.'
+      );
+    }
+    
     return new Error(
       axiosError.response?.data?.message ||
       axiosError.message ||

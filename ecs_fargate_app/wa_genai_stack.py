@@ -933,7 +933,7 @@ class WAGenAIStack(Stack):
             # Store reference to frontend target group
             self.frontend_target_group = frontend_service.target_group
 
-        # Set ALB idle timeout to 15 minutes
+        # Set ALB idle timeout to 60 minutes
         frontend_service.load_balancer.set_attribute(
             "idle_timeout.timeout_seconds", "3600"
         )

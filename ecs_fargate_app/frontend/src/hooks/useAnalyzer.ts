@@ -55,7 +55,7 @@ export const useAnalyzer = () => {
     lensAliasArn?: string | null,
     lensName?: string | null,
     lensPillars?: Record<string, string> | null
-  ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string; fileId?: string }> => {
+  ): Promise<{ results: AnalysisResult[]; isCancelled: boolean; error?: string; fileId?: string; isNetworkInterruption?: boolean }> => {
     setIsAnalyzing(true);
     setError(null);
     setProgress(null);
@@ -111,7 +111,16 @@ export const useAnalyzer = () => {
   
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Analysis failed';
-      setError(errorMessage);
+
+      // Detect network interruptions
+      const isNetworkInterruption = errorMessage.includes('NETWORK_INTERRUPTION:');
+      
+      // Clean up the error message for display
+      const displayMessage = isNetworkInterruption 
+        ? errorMessage.replace('NETWORK_INTERRUPTION: ', '')
+        : errorMessage;
+
+      setError(displayMessage);
   
       // If we have any results, show partial results warning
       if (analysisResults && analysisResults.length > 0) {
@@ -123,7 +132,8 @@ export const useAnalyzer = () => {
       return {
         results: analysisResults || [],
         isCancelled: false,
-        error: errorMessage
+        error: displayMessage,
+        isNetworkInterruption
       };
   
     } finally {

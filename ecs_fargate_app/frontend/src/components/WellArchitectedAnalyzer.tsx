@@ -77,6 +77,8 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   const [currentWorkloadId, setCurrentWorkloadId] = useState<string | undefined>(undefined);
   const [currentWorkloadProtected, setCurrentWorkloadProtected] = useState<boolean | undefined>(undefined);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [isNetworkInterruption, setIsNetworkInterruption] = useState(false);
+  const [isLoadingNetworkResultsButton, setIsLoadingNetworkResultsButton] = useState(false);
 
   const {
     analyze,
@@ -160,6 +162,17 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     }
   };
 
+  const handleLoadNetworkInterruptionResults = async () => {
+    if (!activeWorkItem) return;
+    
+    setIsLoadingNetworkResultsButton(true);
+    try {
+      await handleWorkItemSelect(activeWorkItem, true, activeLensAliasArn);
+    } finally {
+      setIsLoadingNetworkResultsButton(false);
+    }
+  };
+
   // Handle supporting document upload
   const handleSupportingDocumentUploaded = (file: UploadedFile, description: string, fileId: string) => {
     setSupportingDocument(file);
@@ -183,6 +196,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     // Reset risk summary when starting a new analysis
     setRiskSummary(null);
     setProgressTracking(null);
+    setIsNetworkInterruption(false);
 
     // Switch to analysis tab
     setActiveTabId('analysis');
@@ -214,6 +228,11 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
         currentLensName,
         selectedLens?.lensPillars
       );
+
+      // Check if the result indicates a network interruption
+      if (result.isNetworkInterruption) {
+        setIsNetworkInterruption(true);
+      }
 
       // Update activeWorkItem with fileId from analysis result, even for partial results
       if (result.fileId && activeWorkItem) {
@@ -951,7 +970,43 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             />
           </ExpandableSection>
 
-          {error && (
+          {isNetworkInterruption && (
+            <Alert
+              key="network-interruption-alert"
+              type="info"
+              dismissible
+              onDismiss={() => {
+                setIsNetworkInterruption(false);
+                setError(null);
+              }}
+              header="Network Connection Interrupted"
+              action={
+                <SpaceBetween direction="horizontal" size="xs">
+                  {activeWorkItem && (
+                    <Button
+                      variant="primary"
+                      onClick={handleLoadNetworkInterruptionResults}
+                      loading={isLoadingNetworkResultsButton}
+                      disabled={isLoadingNetworkResultsButton}
+                    >
+                      Load Results
+                    </Button>
+                  )}
+                </SpaceBetween>
+              }
+            >
+              <p>Your network connection was interrupted while the analysis was running. 
+              The analysis has likely completed in the background.</p>
+              
+              <p><strong>You can:</strong></p>
+              <ul>
+                <li>Click "Load Results" to try loading the most recent results</li>
+                <li>Or expand your work item in the side navigation panel and click "Load results"</li>
+              </ul>
+            </Alert>
+          )}
+
+          {error && !isNetworkInterruption && (
             <Alert
               key="error-alert"
               type="error"
