@@ -565,7 +565,7 @@ The script will automatically:
 
 </details>
 
-## Local Development
+# Local Development
 
 For development purposes, you can run the application locally using either Finch or Docker containers. This allows you to make changes to the code and see them reflected immediately without having to deploy code changes into your AWS stack.
 
@@ -583,33 +583,43 @@ In addition to the main prerequisites, ensure you have:
 > 2. In the "Outputs" tab of the CDK CloudFormation stack, find:
 >    - `KnowledgeBaseID`: Use this value for KNOWLEDGE_BASE_ID in your .env file (for "Setting up Local Development Environment" section below)
 >    - `WellArchitectedDocsS3Bucket`: Use this value for WA_DOCS_S3_BUCKET in your .env file (for "Setting up Local Development Environment" section below)
+>    - `LensMetadataTableName`: Use this value for LENS_METADATA_TABLE in your .env file (for "Setting up Local Development Environment" section below)
+>    - `AnalysisStorageBucketName`: Use this value for ANALYSIS_STORAGE_BUCKET in your .env file (for "Setting up Local Development Environment" section below)
+>    - `AnalysisMetadataTableName`: Use this value for ANALYSIS_METADATA_TABLE in your .env file (for "Setting up Local Development Environment" section below)
 > 
-> If you haven't deployed the stack yet, follow the steps below to create the required resources manually:
+> If you haven't deployed the stack yet, follow the steps below:
 
-1. Create an S3 bucket:
+To simplify setup for development, you can deploy just the required Knowledge Base and Storage layer components:
+
+1. Navigate to the local development directory:
    ```bash
-   aws s3 mb s3://your-knowledgebase-source-bucket-name --region your-aws-region
+   cd local_development
    ```
 
-2. Upload Well-Architected documents:
+2. Install the required dependencies:
    ```bash
-   aws s3 cp ecs_fargate_app/well_architected_docs/ s3://your-knowledgebase-source-bucket-name/ --recursive
+   pip install -r requirements.txt
    ```
 
-3. Create a Bedrock Knowledge Base:
-   - Go to the Amazon Bedrock console
-   - Navigate to Knowledge bases
-   - Choose "Create knowledge base with vector store"
-   - Enter a name for your knowledge base
-   - Select "Amazon S3" as the data source
-   - Choose "Next"
-   - Add your S3 bucket as a data source:
-     - Choose the bucket you created
-     - Leave all other settings as default
-     - Choose "Next"
-   - Select "Titan Text Embeddings v2" as the embedding model and use the default Vector database settings
-   - Choose "Next" and Complete the knowledge base creation
-   - Note the Knowledge Base ID from the details page
+3. Deploy the KB storage stack:
+   ```bash
+   # Set your preferred AWS region
+   export CDK_DEPLOY_REGION=us-west-2 # Or your preferred region where you have enabled the LLM models
+   export CDK_DOCKER=finch # Or docker 
+   
+   # Bootstrap CDK (if you haven't done this before)
+   cdk bootstrap
+   
+   # Deploy the dev stack (which only deploys Bedrock KB and storage layer resources)
+   cdk deploy --require-approval never
+   ```
+
+4. After deployment completes, note the outputs from the CloudFormation stack:
+   - `KnowledgeBaseID`: Use for KNOWLEDGE_BASE_ID in your .env file in the following section.
+   - `WellArchitectedDocsS3Bucket`: Use for WA_DOCS_S3_BUCKET in your .env file in the following section.
+   - `LensMetadataTableName`: Use for LENS_METADATA_TABLE in your .env file in the following section.
+   - `AnalysisStorageBucketName`: Use for ANALYSIS_STORAGE_BUCKET in your .env file in the following section.
+   - `AnalysisMetadataTableName`: Use for ANALYSIS_METADATA_TABLE in your .env file in the following section.
 
 ### Setting up Local Development Environment
 
@@ -635,19 +645,13 @@ ANALYSIS_METADATA_TABLE=your-analysis-metadata-table-name
 
 > **Security Note**: It is encouraged the use of temporary credentials (including AWS_SESSION_TOKEN) when running the application locally. More details in [Temporary security credentials in IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html). Temporary credentials have a limited lifetime and automatically expire, providing an additional layer of security.
 
-> **Storage Configuration Notes**: 
-> - If you have already deployed this CDK stack in your AWS account:
->   1. Go to the CloudFormation console and find your stack (it starts with "WA-IaC-Analyzer-")
->   2. In the "Outputs" tab, find:
->      - `AnalysisStorageBucketName`: Use this value for ANALYSIS_STORAGE_BUCKET
->      - `AnalysisMetadataTableName`: Use this value for ANALYSIS_METADATA_TABLE
-
-1. Make the development script executable:
-```bash 
+2. Make the development script executable:
+```bash
+# Make sure you are in the root directory of this project
 chmod +x dev.sh
 ```
 
-1. Start the development environment using either Docker or Finch:
+3. Start the development environment using either Docker or Finch:
 ```bash
 # Using Docker
 ./dev.sh -c docker -up
