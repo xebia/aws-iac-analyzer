@@ -28,6 +28,32 @@ Additionally, an **interactive Analyzer Assistant chatbot** enables users to ask
   - Support for domain-specific lenses including Serverless, IoT, SaaS, Machine Learning, and more
   - Get tailored recommendations specific to your workload type
   - Switch between different lenses for comprehensive analysis
+
+<details>
+
+<summary>Expand to see the list of supported AWS Official Lenses:</summary>
+
+- **AWS Well-Architected Framework** (core framework)
+- **Industry Lenses**:
+  - Financial Services Industry
+  - Healthcare Industry
+  - Government
+  - Mergers and Acquisitions
+- **Technology Lenses**:
+  - Generative AI
+  - Serverless Applications
+  - Machine Learning
+  - IoT (Internet of Things)
+  - SaaS (Software as a Service)
+  - Data Analytics
+  - Container Build
+  - DevOps
+  - Migration
+  - Connected Mobility
+  - SAP
+
+</details>
+
 ---
 
 - Upload and analyze Infrastructure as Code templates:

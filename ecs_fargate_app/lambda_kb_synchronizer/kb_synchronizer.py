@@ -443,6 +443,13 @@ def handler(event, context):
             "lensArn": "arn:aws:wellarchitected::aws:lens/migration",
             "lensDescription": "The Migration Lens for the Well-Architected Framework is a collection of customer-proven design principles and best practices that you can apply to your migration program across the three migration phases: Assess, Mobilize, and Migrate.",
         },
+        {
+            "url": "https://docs.aws.amazon.com/pdfs/wellarchitected/latest/generative-ai-lens/generative-ai-lens.pdf",
+            "pdfName": "generative-ai-lens.pdf",
+            "lensName": "Generative AI Lens",
+            "lensArn": "arn:aws:wellarchitected::aws:lens/genai",
+            "lensDescription": "The Generative AI Lens provides comprehensive guidance for designing, deploying, and operating generative AI applications on AWS. It extends the Well-Architected Framework to address unique considerations when using foundation models across all pillars: operational excellence, security, reliability, performance efficiency, cost optimization, and sustainability. The lens emphasizes responsible AI practices throughout the generative AI lifecycle, helping you create secure, reliable, and cost-effective solutions with Amazon Bedrock and SageMaker AI.",
+        },
     ]
 
     # Process primary Well-Architected lens first
