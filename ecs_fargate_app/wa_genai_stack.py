@@ -1025,7 +1025,18 @@ class WAGenAIStack(Stack):
                 action="invoke",
                 parameters={
                     "FunctionName": kb_lambda_synchronizer.function_name,
-                    "InvocationType": "Event",  # Asynchronous invocation
+                    "InvocationType": "Event",
+                },
+                physical_resource_id=cr.PhysicalResourceId.of(
+                    "KbLambdaSynchronizerTrigger"
+                ),
+            ),
+            on_update=cr.AwsSdkCall(
+                service="Lambda",
+                action="invoke",
+                parameters={
+                    "FunctionName": kb_lambda_synchronizer.function_name,
+                    "InvocationType": "Event",
                 },
                 physical_resource_id=cr.PhysicalResourceId.of(
                     "KbLambdaSynchronizerTrigger"
