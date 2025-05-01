@@ -172,6 +172,7 @@ export interface LensInfo {
 export interface WorkloadIdInfo {
   id?: string;
   protected: boolean;
+  lastUpdated?: string;
 }
 
 export interface WorkItem {
@@ -204,8 +205,8 @@ export interface WorkItem {
   iacGeneratedFileType?: Record<string, string>;
   iacPartialResults?: Record<string, boolean>;
   
-  exceedsTokenLimit?: Record<string, boolean>;
-  tokenCount?: Record<string, number>;
+  exceedsTokenLimit?: boolean;
+  tokenCount?: number;
   
   supportingDocumentId?: Record<string, string | undefined>;
   supportingDocumentAdded?: Record<string, boolean>;

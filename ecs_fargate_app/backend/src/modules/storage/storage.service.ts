@@ -463,6 +463,8 @@ export class StorageService {
         s3Prefix: `${userId}/${fileId}`,
         lastModified: timestamp,
         uploadMode: FileUploadMode.ZIP_FILE,
+        tokenCount: packedProject.tokenCount,
+        exceedsTokenLimit: packedProject.exceedsTokenLimit,
       };
 
       // Store work item in DynamoDB
@@ -535,6 +537,8 @@ export class StorageService {
         s3Prefix: `${userId}/${fileId}`,
         lastModified: timestamp,
         uploadMode: FileUploadMode.MULTIPLE_FILES,
+        tokenCount: packedProject.tokenCount,
+        exceedsTokenLimit: packedProject.exceedsTokenLimit,
       };
 
       // Store work item in DynamoDB
@@ -741,7 +745,7 @@ export class StorageService {
       const expressionAttributeValues: Record<string, any> = {};
       
       // Handle flat fields
-      const flatFields = ['lastModified', 'uploadMode', 'hasChatHistory', 'workloadId'];
+      const flatFields = ['lastModified', 'uploadMode', 'hasChatHistory', 'workloadId', 'exceedsTokenLimit', 'tokenCount'];
       flatFields.forEach(field => {
         if (updates[field] !== undefined) {
           updateExpressions.push(`#${field} = :${field}`);
@@ -769,7 +773,6 @@ export class StorageService {
         'analysisStatus', 'analysisProgress', 'analysisError', 'analysisPartialResults',
         'iacGenerationStatus', 'iacGenerationProgress', 'iacGenerationError', 
         'iacGeneratedFileType', 'iacPartialResults',
-        'exceedsTokenLimit', 'tokenCount',
         'supportingDocumentId', 'supportingDocumentAdded', 'supportingDocumentDescription',
         'supportingDocumentName', 'supportingDocumentType'
       ];

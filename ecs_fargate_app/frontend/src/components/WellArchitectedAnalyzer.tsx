@@ -39,7 +39,7 @@ interface Props {
 export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNeeded, onAnalysisStart, onCurrentLensResultsSelection }) => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFiles | null>(null);
   const [updatedDocument, setUpdatedDocument] = useState<UpdatedDocument | null>(null);
-  const [workloadId, setWorkloadId] = useState<string | null>(null);
+  const [workloadId, setWorkloadId] = useState<string | undefined>(undefined);
   const [activeTabId, setActiveTabId] = useState('analysis');
   const [selectedPillars, setSelectedPillars] = useState(
     DEFAULT_PILLARS.filter(p => p.selected).map(p => p.id)
@@ -103,6 +103,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     canDeleteWorkload,
     setCanDeleteWorkload,
     createdWorkloadId,
+    setCreatedWorkloadId,
     showAnalysisCancellationAlert,
     setShowAnalysisCancellationAlert,
     showPartialResultsWarning,
@@ -354,12 +355,41 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
 
   const handleUpdate = async (activeWorkItem?: any, specificWorkloadId?: string, specificLensAliasArn?: string, currentWorkloadProtected?: boolean) => {
     // Use provided values or the current state values
-    const activeWorkloadId = specificWorkloadId || workloadId || createdWorkloadId || currentWorkloadId;
+    const activeWorkloadId = specificWorkloadId || workloadId || createdWorkloadId;
     const activeLensArn = specificLensAliasArn || activeLensAliasArn;
 
     const isWorkloadProtected = workloadId ? true : currentWorkloadProtected;
 
     await updateWorkload(activeWorkloadId, activeLensArn, activeWorkItem, isWorkloadProtected);
+
+    // Get the complete work item from backend
+    const loadedWorkItem = await storageApi.getWorkItem(activeWorkItem.fileId, activeLensArn);
+
+    // Only proceed if we got results
+    if (!loadedWorkItem) {
+      setError('Failed to load work item');
+      return;
+    }
+
+    // Set complete workItem loaded from backend
+    setActiveWorkItem(loadedWorkItem.workItem);
+  };
+
+  const handleDeleteWorkload = async (activeWorkItem?: any, activeLensAlias?: string, activeLensArn?: string) => {
+
+    await deleteWorkload(activeWorkItem, activeLensAlias);
+
+    // Get the complete work item from backend
+    const loadedWorkItem = await storageApi.getWorkItem(activeWorkItem.fileId, activeLensArn);
+
+    // Only proceed if we got results
+    if (!loadedWorkItem) {
+      setError('Failed to load work item');
+      return;
+    }
+
+    // Set complete workItem loaded from backend
+    setActiveWorkItem(loadedWorkItem.workItem);
   };
 
   const handleFileUploaded = (files: UploadedFiles, fileId: string) => {
@@ -465,7 +495,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     const activeLensArn = specificLensAliasArn || activeLensAliasArn;
 
     if (!activeWorkloadId) {
-      // If no workload ID available, reset the risk summary
+      // If no workload ID available or no previous update in the workload for this lens has been done in the past, reset the risk summary
       setRiskSummary(null);
       return;
     }
@@ -594,12 +624,14 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
 
       // Reset risk summary when switching work items
       setRiskSummary(null);
+      setCreatedWorkloadId(undefined);
+      setWorkloadId(undefined);
 
       // If lensAlias is provided, set it as active
       if (lensAlias) {
         setActiveLensAlias(lensAlias);
         setActiveLensAliasArn(lensAliasArn);
-
+      
         // Find the lens in workItem.usedLenses to get the lens name
         const lens = workItem.usedLenses?.find(l => l.lensAlias === lensAlias);
         if (lens) {
@@ -612,7 +644,6 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
           setCurrentWorkloadId(workItem.workloadIds[lensAlias].id);
           setCurrentWorkloadProtected(workItem.workloadIds[lensAlias].protected);
           setCurrentLensWorkloadId(workItem.workloadIds[lensAlias].id);
-          // Set canDeleteWorkload based on protected status
           setCanDeleteWorkload(!workItem.workloadIds[lensAlias].protected);
 
           // After setting the current workload ID, refresh the summary
@@ -624,42 +655,20 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
               }
             }, 100);
           }
+        } else if (workItem.workloadIds && Object.keys(workItem.workloadIds).length > 0) {
+          // Else if - The workload in the WS Tool has never being updated for this particular lens
+          // Use the first entry in workloadIds map for workload info, regardless of which lens is active
+          const firstLensAlias = Object.keys(workItem.workloadIds)[0];
+          const workloadInfo = workItem.workloadIds[firstLensAlias];
+          
+          setCurrentWorkloadId(workloadInfo.id);
+          setCurrentWorkloadProtected(workloadInfo.protected);
+          setCurrentLensWorkloadId(workloadInfo.id);
+          setCanDeleteWorkload(!workloadInfo.protected);
         } else {
           // No workloadIds for current work item. Reset currentWorkloadId and currentLensWorkloadId
           setCurrentWorkloadId(undefined);
-          setCurrentLensWorkloadId(undefined);
-          setCanDeleteWorkload(false);
-        }
-      } else if (workItem.usedLenses && workItem.usedLenses.length > 0) {
-        // Default to the first lens if no specific lens is provided
-        const defaultLensAlias = workItem.usedLenses[0].lensAlias;
-        setActiveLensAlias(defaultLensAlias);
-
-        const lensAliasArn = workItem.usedLenses[0].lensAliasArn;
-        setActiveLensAliasArn(lensAliasArn);
-        setActiveLensName(workItem.usedLenses[0].lensName);
-        lensName = workItem.usedLenses[0].lensName;
-
-        // Check if there's a workloadId for this lens
-        if (workItem.workloadIds && workItem.workloadIds[defaultLensAlias]) {
-          setCurrentWorkloadId(workItem.workloadIds[defaultLensAlias].id);
-          setCurrentWorkloadProtected(workItem.workloadIds[defaultLensAlias].protected);
-          setCurrentLensWorkloadId(workItem.workloadIds[defaultLensAlias].id);
-          // Set canDeleteWorkload based on protected status
-          setCanDeleteWorkload(!workItem.workloadIds[defaultLensAlias].protected);
-
-          // After setting the current workload ID, refresh the summary
-          if (loadResults) {
-            setTimeout(() => {
-              const workloadId = workItem.workloadIds?.[defaultLensAlias]?.id;
-              if (workloadId && lensAliasArn) {
-                handleRefresh(workloadId, lensAliasArn);
-              }
-            }, 100);
-          }
-        } else {
-          // No workloadIds for current work item. Reset currentWorkloadId and currentLensWorkloadId
-          setCurrentWorkloadId(undefined);
+          setCreatedWorkloadId(undefined);
           setCurrentLensWorkloadId(undefined);
           setCanDeleteWorkload(false);
         }
@@ -697,8 +706,8 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
       }
 
       // Show token warning if applicable - check the token count for the current lens
-      const lensTokenCount = loadedWorkItem.tokenCount?.[currentLensAlias];
-      const lensExceedsTokenLimit = loadedWorkItem.exceedsTokenLimit?.[currentLensAlias];
+      const lensTokenCount = loadedWorkItem.tokenCount;
+      const lensExceedsTokenLimit = loadedWorkItem.exceedsTokenLimit;
 
       if (lensExceedsTokenLimit) {
         setShowTokenLimitWarning(true);
@@ -775,9 +784,9 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             type: loadedWorkItem.fileType,
             size: new Blob([fileContent]).size,
           };
-          // For lens-specific token counts
-          files.exceedsTokenLimit = loadedWorkItem.exceedsTokenLimit?.[currentLensAlias];
-          files.tokenCount = loadedWorkItem.tokenCount?.[currentLensAlias];
+          // For work item token counts
+          files.exceedsTokenLimit = loadedWorkItem.exceedsTokenLimit;
+          files.tokenCount = loadedWorkItem.tokenCount;
         } else {
           files.multipleFiles = [{
             name: loadedWorkItem.fileName,
@@ -785,9 +794,9 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             type: loadedWorkItem.fileType,
             size: new Blob([fileContent]).size,
           }];
-          // For lens-specific token counts
-          files.exceedsTokenLimit = loadedWorkItem.exceedsTokenLimit?.[currentLensAlias];
-          files.tokenCount = loadedWorkItem.tokenCount?.[currentLensAlias];
+          // For work item token counts
+          files.exceedsTokenLimit = loadedWorkItem.exceedsTokenLimit;
+          files.tokenCount = loadedWorkItem.tokenCount;
         }
 
         setUploadedFiles(files);
@@ -1343,7 +1352,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                     summary={riskSummary}
                     onUpdate={() => handleUpdate(activeWorkItem, currentLensWorkloadId, activeLensAliasArn, currentWorkloadProtected)}
                     onGenerateReport={() => handleGenerateReport(currentLensWorkloadId, activeLensAliasArn)}
-                    onDeleteWorkload={() => deleteWorkload(activeWorkItem, activeLensAlias)}
+                    onDeleteWorkload={() => handleDeleteWorkload(activeWorkItem, activeLensAlias, activeLensAliasArn)}
                     onRefresh={() => handleRefresh(currentLensWorkloadId, activeLensAliasArn)}
                     isUpdating={isUpdating}
                     isRefreshing={isRefreshing || isLoadingResults}

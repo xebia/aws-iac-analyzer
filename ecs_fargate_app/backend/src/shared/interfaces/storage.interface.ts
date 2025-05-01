@@ -11,6 +11,7 @@ export interface LensInfo {
 export interface WorkloadIdInfo {
   id: string;
   protected: boolean;
+  lastUpdated?: string;
 }
 
 export interface WorkItem {
@@ -47,8 +48,8 @@ export interface WorkItem {
   iacPartialResults?: Record<string, boolean>;
   
   // Token fields by lensAlias
-  exceedsTokenLimit?: Record<string, boolean>;
-  tokenCount?: Record<string, number>;
+  exceedsTokenLimit?: boolean;
+  tokenCount?: number;
   
   // Supporting document by lensAlias
   supportingDocumentId?: Record<string, string>;
@@ -80,8 +81,8 @@ export interface WorkItemUpdate {
   iacGeneratedFileType?: Record<string, string>;
   iacPartialResults?: Record<string, boolean>;
   
-  exceedsTokenLimit?: Record<string, boolean>;
-  tokenCount?: Record<string, number>;
+  exceedsTokenLimit?: boolean;
+  tokenCount?: number;
   
   supportingDocumentId?: Record<string, string>;
   supportingDocumentAdded?: Record<string, boolean>;

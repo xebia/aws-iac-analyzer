@@ -30,8 +30,10 @@ export function buildDetailsPrompt(
     prompt += `
     
     <supporting_document>
-    Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when providing detailed analysis. 
-    The supporting document is about: ${supportingDocDescription}
+    Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when providing detailed analysis.
+    
+    Below is a brief description of the supporting document attached: 
+    ${supportingDocDescription}
     </supporting_document>
     `;
   }
@@ -61,8 +63,10 @@ export function buildImageDetailsPrompt(
     prompt += `
   
   <supporting_document>
-  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when providing detailed analysis. 
-  The supporting document is about: ${supportingDocDescription}
+  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when providing detailed analysis.
+  
+  Below is a brief description of the supporting document attached: 
+  ${supportingDocDescription}
   </supporting_document>
   `;
   }

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AwsConfigService } from '../../config/aws.config';
 import {
   GetLensReviewCommand,
-  ListAnswersCommand,
+  paginateListAnswers,
   UpdateAnswerCommand,
   CreateMilestoneCommand,
   CreateWorkloadCommand,
@@ -89,17 +89,34 @@ export class WellArchitectedService {
 
   async listAnswers(workloadId: string, pillarId: string, lensAlias?: string) {
     const waClient = this.awsConfig.createWAClient();
-    const command = new ListAnswersCommand({
-      WorkloadId: workloadId,
-      LensAlias: lensAlias || this.lensAliasArn, 
-      PillarId: pillarId,
-    });
-
+    
     try {
-      return await waClient.send(command);
+      // Initialize response object with the workload ID
+      const completeResponse = {
+        WorkloadId: workloadId,
+        AnswerSummaries: [],
+      };
+      
+      const paginator = paginateListAnswers(
+        { client: waClient },
+        {
+          WorkloadId: workloadId,
+          LensAlias: lensAlias || this.lensAliasArn,
+          PillarId: pillarId,
+        }
+      );
+      
+      for await (const page of paginator) {
+        // Add all answer summaries from this page
+        if (page.AnswerSummaries) {
+          completeResponse.AnswerSummaries.push(...page.AnswerSummaries);
+        }
+      }
+      
+      return completeResponse;
     } catch (error) {
       this.logger.error(`Error listing answers for workload ${workloadId}:`, error);
-      throw new Error(error);
+      throw error;
     }
   }
 

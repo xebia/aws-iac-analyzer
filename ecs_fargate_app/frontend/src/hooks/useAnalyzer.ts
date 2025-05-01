@@ -24,7 +24,7 @@ export const useAnalyzer = () => {
     currentPillar: string;
     currentQuestion: string;
   } | null>(null);
-  const [createdWorkloadId, setCreatedWorkloadId] = useState<string | null>(null);
+  const [createdWorkloadId, setCreatedWorkloadId] = useState<string | undefined>(undefined);
   const [canDeleteWorkload, setCanDeleteWorkload] = useState(false);
   const [showAnalysisCancellationAlert, setShowAnalysisCancellationAlert] = useState(false);
   const [isCancellingAnalysis, setIsCancellingAnalysis] = useState(false);
@@ -219,7 +219,8 @@ export const useAnalyzer = () => {
         // Update the workloadIds map in the work item
         const workloadIdInfo: WorkloadIdInfo = {
           id: workloadId,
-          protected: isProtected
+          protected: isProtected,
+          lastUpdated: new Date().toISOString()
         };
         
         const workloadIds = {
@@ -272,7 +273,7 @@ export const useAnalyzer = () => {
       }
       
       // Reset state after successful deletion
-      setCreatedWorkloadId(null);
+      setCreatedWorkloadId(undefined);
       setCurrentLensWorkloadId(undefined);
       setCanDeleteWorkload(false);
       setRiskSummary(null);
@@ -382,6 +383,7 @@ export const useAnalyzer = () => {
     isRefreshing,
     isGeneratingReport,
     createdWorkloadId,
+    setCreatedWorkloadId,
     canDeleteWorkload,
     setCanDeleteWorkload,
     isDeleting,

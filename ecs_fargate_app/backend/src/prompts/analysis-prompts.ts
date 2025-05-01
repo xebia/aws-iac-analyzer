@@ -35,8 +35,12 @@ export function buildImagePrompt(
     prompt += `
   
   <supporting_document>
-  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when completing the review. 
-  The supporting document is about: ${supportingDocDescription}
+  The attached file named "${supportingDocName}" has been provided as a supporting document that you need to use for additional context and guidelines to consider when completing the analysis and deciding on whether a best practice if applied, not applied or not applicable.
+
+  In the case your decision to consider a best practice to be applied or not applied was mainly driven from the content of the supporting document, say so in the reasonApplied or reasonNotApplied field of your response.
+
+  Below is a brief description of the supporting document attached: 
+  ${supportingDocDescription}
   </supporting_document>
   `;
   }
@@ -79,8 +83,12 @@ export function buildPrompt(
     prompt += `
   
   <supporting_document>
-  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when completing the review. 
-  The supporting document is about: ${supportingDocDescription}
+  The attached file named "${supportingDocName}" has been provided as a supporting document that you need to use for additional context and guidelines to consider when completing the analysis and deciding on whether a best practice if applied, not applied or not applicable.
+
+  In the case your decision to consider a best practice to be applied or not applied was mainly driven from the content of the supporting document, say so in the reasonApplied or reasonNotApplied field of your response.
+
+  Below is a brief description of the supporting document attached: 
+  ${supportingDocDescription}
   </supporting_document>
   `;
   }
@@ -123,8 +131,12 @@ export function buildProjectPrompt(
     prompt += `
   
   <supporting_document>
-  Refer to the attached supporting document "${supportingDocName}" for additional context or guidelines to consider when completing the review. 
-  The supporting document is about: ${supportingDocDescription}
+  The attached file named "${supportingDocName}" has been provided as a supporting document that you need to use for additional context and guidelines to consider when completing the analysis and deciding on whether a best practice if applied, not applied or not applicable.
+
+  In the case your decision to consider a best practice to be applied or not applied was mainly driven from the content of the supporting document, say so in the reasonApplied or reasonNotApplied field of your response.
+
+  Below is a brief description of the supporting document attached: 
+  ${supportingDocDescription}
   </supporting_document>
   `;
   }

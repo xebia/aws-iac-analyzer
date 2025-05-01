@@ -67,12 +67,13 @@ export class AnalyzerController {
       const lensAlias = analyzeRequest.lensAliasArn?.split('/')?.pop();
 
       // If workloadId is provided, mark it as protected in the workloadIds map
-      let workloadIds: Record<string, { id: string; protected: boolean }> | undefined;
+      let workloadIds: Record<string, { id: string; protected: boolean; lastUpdated?: string }> | undefined;
       if (analyzeRequest.workloadId && lensAlias && !analyzeRequest.isTempWorkload) {
         workloadIds = {
           [lensAlias]: {
             id: analyzeRequest.workloadId,
-            protected: true // Provided by user, so it's protected
+            protected: true, // Provided by user, so it's protected
+            lastUpdated: new Date().toISOString()
           }
         };
       }
