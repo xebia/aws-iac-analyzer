@@ -1792,6 +1792,34 @@ export class AnalyzerService {
         const knowledgeBaseId = this.configService.get<string>('aws.bedrock.knowledgeBaseId');
         const modelId = this.configService.get<string>('aws.bedrock.modelId');
 
+        // Filter KB documentation per pillar if reviewing the standard Well-Architected Framework
+        let filter;
+        if (lensName === 'Well-Architected Framework') {
+            filter = {
+                andAll: [
+                    {
+                        equals: {
+                            key: "lens_name",
+                            value: lensName
+                        }
+                    },
+                    {
+                        equals: {
+                            key: "pillar",
+                            value: pillar
+                        }
+                    }
+                ]
+            };
+        } else {
+            filter = {
+                equals: {
+                    key: "lens_name",
+                    value: lensName
+                }
+            };
+        }
+
         const command = new RetrieveAndGenerateCommand({
             input: {
                 text: Prompts.buildKnowledgeBaseInputPrompt(question, pillar, questionGroup, lensName),
@@ -1804,22 +1832,7 @@ export class AnalyzerService {
                     retrievalConfiguration: {
                         vectorSearchConfiguration: {
                             numberOfResults: 10,
-                            filter: {
-                                andAll: [
-                                    {
-                                        equals: {
-                                            key: "lens_name",
-                                            value: lensName
-                                        }
-                                    },
-                                    {
-                                        equals: {
-                                            key: "pillar",
-                                            value: pillar
-                                        }
-                                    }
-                                ]
-                            }
+                            filter: filter
                         },
                     },
                     generationConfiguration: {

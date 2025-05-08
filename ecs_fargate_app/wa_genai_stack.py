@@ -1,9 +1,9 @@
 """CDK stack for hosting react app in ECS and Fargate"""
 
 import configparser
-import hashlib
 import os
 import platform
+import time
 import uuid
 
 import aws_cdk as cdk
@@ -1016,6 +1016,8 @@ class WAGenAIStack(Stack):
         # Add service discovery
         backend_service.enable_cloud_map(cloud_map_namespace=namespace, name="backend")
 
+        deployment_timestamp = int(time.time())
+
         # Custom resource to trigger the KB Lambda synchronizer during deployment
         kb_lambda_trigger_cr = cr.AwsCustomResource(
             self,
@@ -1028,7 +1030,7 @@ class WAGenAIStack(Stack):
                     "InvocationType": "Event",
                 },
                 physical_resource_id=cr.PhysicalResourceId.of(
-                    "KbLambdaSynchronizerTrigger"
+                    f"KbLambdaSynchronizerTrigger-{deployment_timestamp}"
                 ),
             ),
             on_update=cr.AwsSdkCall(
@@ -1039,7 +1041,7 @@ class WAGenAIStack(Stack):
                     "InvocationType": "Event",
                 },
                 physical_resource_id=cr.PhysicalResourceId.of(
-                    "KbLambdaSynchronizerTrigger"
+                    f"KbLambdaSynchronizerTrigger-{deployment_timestamp}"
                 ),
             ),
             # Use explicit IAM policy statement instead of from_sdk_calls
