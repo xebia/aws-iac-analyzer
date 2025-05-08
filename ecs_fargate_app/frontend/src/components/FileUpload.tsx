@@ -35,13 +35,21 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     return ['.png', '.jpg', '.jpeg'].includes(extension);
   };
 
+  // Helper function to check if a file is a PDF
+  const isPdfFile = (file: File): boolean => {
+    const extension = `.${file.name.split('.').pop()?.toLowerCase()}`;
+    return extension === '.pdf';
+  };
+
   // Filter options based on the current mode
   const getAcceptedTypesForMode = (): string[] => {
     if (uploadMode === FileUploadMode.ZIP_FILE) {
       return ['.zip'];
+    } else if (uploadMode === FileUploadMode.PDF_FILE) {
+      return ['.pdf'];
     } else {
-      // For single or multiple files, exclude zip files
-      return acceptedFileTypes.filter(type => type !== '.zip');
+      // For single or multiple files, exclude zip files and PDF files
+      return acceptedFileTypes.filter(type => type !== '.zip' && type !== '.pdf');
     }
   };
 
@@ -53,7 +61,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       return;
     }
 
-    // Determine the actual upload mode based on number of files
+    // Determine the actual upload mode based on number of files and selected mode
     let actualUploadMode = uploadMode;
     if (uploadMode === FileUploadMode.SINGLE_FILE) {
       // If user uploaded more than 1 file in "Single or Multiple Files" mode,
@@ -64,31 +72,57 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     // Get accepted file types for current mode
     const acceptedTypes = getAcceptedTypesForMode();
     
-    // Validate file types
-    const invalidFiles = files.filter(file => {
-      const extension = `.${file.name.split('.').pop()?.toLowerCase()}`;
-      return !acceptedTypes.includes(extension);
-    });
-
-    if (invalidFiles.length > 0) {
-      const invalidNames = invalidFiles.map(f => f.name).join(', ');
-      setError(`The following files are not allowed: ${invalidNames}`);
-      return;
-    }
-
-    // Check if there are multiple image files (new requirement)
-    const imageFiles = files.filter(file => isImageFile(file));
-    if (imageFiles.length > 1) {
-      setError('Only one image file (.png, .jpg, .jpeg) can be uploaded at a time.');
-      return;
-    }
-    
-    // For multiple files, check if there are mixed file types that aren't allowed together
-    if (actualUploadMode === FileUploadMode.MULTIPLE_FILES && files.length > 1) {
-      // Check if there are image files mixed with non-image files
-      if (imageFiles.length > 0 && files.length > imageFiles.length) {
-        setError('Cannot mix image files (.png, .jpg, .jpeg) with other file types.');
+    // PDF file mode specific validations
+    if (uploadMode === FileUploadMode.PDF_FILE) {
+      // Check if we have too many PDF files
+      if (files.length > 5) {
+        setError(`Maximum 5 PDF documents allowed. You've selected ${files.length} files.`);
         return;
+      }
+
+      // Validate file types
+      const nonPdfFiles = files.filter(file => !isPdfFile(file));
+      if (nonPdfFiles.length > 0) {
+        const invalidNames = nonPdfFiles.map(f => f.name).join(', ');
+        setError(`Only PDF files are allowed. Non-PDF files: ${invalidNames}`);
+        return;
+      }
+
+      // Check file sizes (4.5MB each max)
+      const MAX_PDF_SIZE = 4.5 * 1024 * 1024; // 4.5MB in bytes
+      const oversizedFiles = files.filter(file => file.size > MAX_PDF_SIZE);
+      if (oversizedFiles.length > 0) {
+        const oversizedNames = oversizedFiles.map(f => f.name).join(', ');
+        setError(`Each PDF file must be less than 4.5MB. Oversized files: ${oversizedNames}`);
+        return;
+      }
+    } else {
+      // Validate file types for non-PDF modes
+      const invalidFiles = files.filter(file => {
+        const extension = `.${file.name.split('.').pop()?.toLowerCase()}`;
+        return !acceptedTypes.includes(extension);
+      });
+
+      if (invalidFiles.length > 0) {
+        const invalidNames = invalidFiles.map(f => f.name).join(', ');
+        setError(`The following files are not allowed: ${invalidNames}`);
+        return;
+      }
+
+      // Check if there are multiple image files
+      const imageFiles = files.filter(file => isImageFile(file));
+      if (imageFiles.length > 1) {
+        setError('Only one image file (.png, .jpg, .jpeg) can be uploaded at a time.');
+        return;
+      }
+      
+      // For multiple files, check if there are mixed file types that aren't allowed together
+      if (actualUploadMode === FileUploadMode.MULTIPLE_FILES && files.length > 1) {
+        // Check if there are image files mixed with non-image files
+        if (imageFiles.length > 0 && files.length > imageFiles.length) {
+          setError('Cannot mix image files (.png, .jpg, .jpeg) with other file types.');
+          return;
+        }
       }
     }
 
@@ -158,6 +192,27 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           uploadedFiles.exceedsTokenLimit = response.exceedsTokenLimit;
         }
       }
+      else if (actualUploadMode === FileUploadMode.PDF_FILE) {
+        // Handle PDF files upload results
+        if (files.length === 1) {
+          // Single PDF file
+          const file = files[0];
+          uploadedFiles.singleFile = {
+            name: file.name,
+            content: '', // Content is stored in S3
+            type: file.type,
+            size: file.size,
+          };
+        } else {
+          // Multiple PDF files
+          uploadedFiles.multipleFiles = files.map(file => ({
+            name: file.name,
+            content: '', // Content is stored in S3
+            type: file.type,
+            size: file.size,
+          }));
+        }
+      }
 
       setUploadStatus('success');
       onFileUploaded(uploadedFiles, response.fileId);
@@ -174,6 +229,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     if (file.name.endsWith('.tf')) return 'application/terraform';
     if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) return 'application/yaml';
     if (file.name.endsWith('.json')) return 'application/json';
+    if (file.name.endsWith('.pdf')) return 'application/pdf';
     
     // For standard MIME types
     return file.type;
@@ -185,7 +241,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         label={
           <>
             <Header variant="h3">
-              1. Upload your IaC documents or architecture diagram image <HelpButton contentId="fileUpload" />
+              1. Upload your IaC documents, architecture diagram image, or PDF documents <HelpButton contentId="fileUpload" />
             </Header>
           </>
         }
@@ -209,6 +265,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               {
                 id: FileUploadMode.ZIP_FILE,
                 text: "Complete IaC Project"
+              },
+              {
+                id: FileUploadMode.PDF_FILE,
+                text: "PDF Documents"
               }
             ]}
           />
@@ -219,6 +279,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           
           {uploadMode === FileUploadMode.ZIP_FILE && (
             <Box>Upload a .zip file containing your IaC project or repository files. Binary and media files in the zip will be excluded.</Box>
+          )}
+          
+          {uploadMode === FileUploadMode.PDF_FILE && (
+            <Box>Upload up to 5 PDF documents (max 4.5MB each) with text related to architectural documentation and technical specifications relevant to your workload.</Box>
           )}
 
           <CloudscapeFileUpload
@@ -235,6 +299,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                     return 'Drop file(s) to upload';
                   case FileUploadMode.ZIP_FILE:
                     return 'Drop ZIP file to upload';
+                  case FileUploadMode.PDF_FILE:
+                    return 'Drop PDF file(s) to upload (max 5)';
                   default:
                     return 'Drop file(s) to upload';
                 }
@@ -243,7 +309,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             }}
             showFileLastModified
             showFileSize
-            multiple={uploadMode === FileUploadMode.SINGLE_FILE}
+            multiple={uploadMode === FileUploadMode.SINGLE_FILE || uploadMode === FileUploadMode.PDF_FILE}
             tokenLimit={uploadMode === FileUploadMode.ZIP_FILE ? 1 : undefined}
           />
           {isUploading && (

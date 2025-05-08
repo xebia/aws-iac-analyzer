@@ -115,7 +115,7 @@ export class AnalyzerService {
 
         return {
             inferenceConfig: {
-                maxTokens: 4096,
+                maxTokens: 8192,
                 temperature: 0.7
             }
         };
@@ -142,9 +142,9 @@ export class AnalyzerService {
             }
 
             // Only allow chat if analysis is completed or partial
-            if (!workItem.analysisStatus?.[lensAlias] || 
-                (workItem.analysisStatus[lensAlias] !== 'COMPLETED' && 
-                 workItem.analysisStatus[lensAlias] !== 'PARTIAL')) {
+            if (!workItem.analysisStatus?.[lensAlias] ||
+                (workItem.analysisStatus[lensAlias] !== 'COMPLETED' &&
+                    workItem.analysisStatus[lensAlias] !== 'PARTIAL')) {
                 throw new Error('Analysis must be completed before chatting');
             }
 
@@ -247,8 +247,81 @@ export class AnalyzerService {
             const bedrockClient = this.awsConfig.createBedrockClient();
             let response;
 
-            // Handle based on file type and upload mode
-            if (uploadMode === FileUploadMode.SINGLE_FILE && isImageFile) {
+            // Create user message with the question
+            const userMessage: Message = {
+                role: 'user',
+                content: [{ text: message }]
+            };
+
+            // Handle PDF files
+            if (uploadMode === FileUploadMode.PDF_FILE) {
+                // Get the PDF files
+                const { data: pdfFiles } = await this.storageService.getOriginalContent(
+                    userId,
+                    fileId,
+                    false
+                );
+
+                // Add PDF files to the message (up to 5 PDFs)
+                if (Array.isArray(pdfFiles)) {
+                    const pdfsToAdd = pdfFiles.slice(0, 5); // Take first 5 PDFs
+                    for (const pdfFile of pdfsToAdd) {
+                        userMessage.content.push({
+                            document: {
+                                format: "pdf",
+                                name: this.normalizeFileName(pdfFile.filename),
+                                source: { bytes: pdfFile.buffer }
+                            }
+                        });
+                    }
+                }
+
+                // Add user message to messages array
+                messages.push(userMessage);
+
+                // Create the Converse command for PDFs
+                const command = new ConverseCommand({
+                    modelId: this.configService.get<string>('aws.bedrock.modelId'),
+                    messages: messages,
+                    system: systemContentBlock,
+                    ...modelParams
+                });
+
+                response = await bedrockClient.send(command);
+
+                // Process the response
+                if (response.output && response.output.message && response.output.message.content) {
+                    const content = response.output.message.content;
+                    // Handle different content types
+                    let responseText = '';
+                    for (const block of content) {
+                        if ('text' in block) {
+                            responseText += block.text || '';
+                        }
+                    }
+
+                    // Add the user message and AI response to chat history
+                    chatHistory.push({
+                        id: `user-${Date.now()}`,
+                        content: message,
+                        timestamp: new Date().toISOString(),
+                        isUser: true
+                    });
+
+                    chatHistory.push({
+                        id: `assistant-${Date.now()}`,
+                        content: responseText,
+                        timestamp: new Date().toISOString(),
+                        isUser: false
+                    });
+
+                    // Save the updated chat history
+                    await this.storageService.storeChatHistory(userId, fileId, chatHistory);
+
+                    return responseText;
+                }
+
+            } else if (uploadMode === FileUploadMode.SINGLE_FILE && isImageFile) {
                 // Handle single image file
                 let processedContent: string;
 
@@ -386,16 +459,44 @@ export class AnalyzerService {
         }
     }
 
-    private async getFileContent(userId: string, fileId: string): Promise<{ content: string; type: string }> {
+    /**
+ * Gets file content for analysis from storage service
+ * @param userId User ID
+ * @param fileId File ID
+ * @param uploadMode File upload mode
+ * @returns File content, type, and relevant metadata
+ */
+    private async getFileContent(
+        userId: string,
+        fileId: string,
+        uploadMode: FileUploadMode = FileUploadMode.SINGLE_FILE
+    ): Promise<{ content: string | any; type: string }> {
         try {
-            const workItem = await this.storageService.getWorkItem(userId, fileId);
+
+            // Handle PDF files
+            if (uploadMode === FileUploadMode.PDF_FILE) {
+                // Get the PDF files from storage
+                const { data: pdfFiles, contentType } = await this.storageService.getOriginalContent(
+                    userId,
+                    fileId,
+                    false
+                );
+
+                // Return the PDF files array to be used in analysis
+                return {
+                    content: pdfFiles, // Array of { filename, buffer, size }
+                    type: contentType, // Will be 'application/pdf-collection'
+                };
+            }
+
+            // For other file types
             const { data, contentType: type } = await this.storageService.getOriginalContent(
                 userId,
                 fileId,
                 false
             );
             // Convert Buffer to string or handle base64 data
-            let content: string;
+            let content: string | any;
             if (Buffer.isBuffer(data)) {
                 // If it's an image, convert to base64
                 if (type.startsWith('image/')) {
@@ -408,10 +509,10 @@ export class AnalyzerService {
                 content = data;
             }
 
-            return { content, type };
+            return { content, type: type };
         } catch (error) {
-            this.logger.error('Error fetching file content:', error);
-            throw new Error('Failed to fetch file content from storage');
+            this.logger.error('Error getting file content:', error);
+            throw new Error(`Failed to get file content: ${error.message}`);
         }
     }
 
@@ -463,7 +564,7 @@ export class AnalyzerService {
             }
 
             // Get file content from storage
-            const { content: fileContent, type: fileType } = await this.getFileContent(userId, fileId);
+            const { content: fileContent, type: fileType } = await this.getFileContent(userId, fileId, uploadMode);
 
             // Get existing work item
             workItem = await this.storageService.getWorkItem(userId, fileId);
@@ -1173,6 +1274,183 @@ export class AnalyzerService {
                 throw new Error('No file type provided');
             }
 
+            // Handle PDF files
+            if (workItem.uploadMode === FileUploadMode.PDF_FILE) {
+                // Get the PDF files
+                const { data: pdfFiles } = await this.storageService.getOriginalContent(
+                    userId,
+                    fileId,
+                    false
+                );
+
+                // Get supporting document if available
+                let supportingDocContent = null;
+                let supportingDocType = null;
+                let supportingDocName = null;
+                let supportingDocDescription = null;
+
+                const usedLensAlias = lensAlias || 'wellarchitected';
+
+                if (workItem.supportingDocumentId && workItem.supportingDocumentAdded) {
+                    try {
+                        const supportingDoc = await this.storageService.getSupportingDocument(
+                            userId,
+                            fileId,
+                            workItem.supportingDocumentId[usedLensAlias],
+                            usedLensAlias
+                        );
+
+                        // Convert to base64 for images and PDFs, leave as text for text files
+                        if (supportingDoc.contentType === 'text/plain') {
+                            supportingDocContent = supportingDoc.data.toString('utf8');
+                        } else {
+                            supportingDocContent = supportingDoc.data.toString('base64');
+                        }
+
+                        supportingDocType = supportingDoc.contentType;
+                        supportingDocName = supportingDoc.fileName;
+                        supportingDocDescription = workItem.supportingDocumentDescription;
+                    } catch (error) {
+                        this.logger.warn(`Failed to retrieve supporting document: ${error.message}. Continuing without it.`);
+                    }
+                }
+
+                let allDetails = '';
+                let hasError = false;
+                const totalItems = filteredItems.length;
+
+                this.analyzerGateway.emitImplementationProgress({
+                    status: `Analyzing 1 of ${totalItems} selected best practices not applied - Best practice: '${filteredItems[0].name}'`,
+                    progress: 0
+                });
+
+                for (let i = 0; i < totalItems; i++) {
+                    try {
+                        const item = filteredItems[i];
+
+                        let itemDetails = '';
+                        let isComplete = false;
+
+                        while (!isComplete) {
+                            // Create prompt for PDF details
+                            const detailsPrompt = Prompts.buildDetailsPrompt(
+                                item,
+                                "See the provided PDF documents",
+                                itemDetails,
+                                supportingDocName,
+                                supportingDocDescription
+                            );
+
+                            // Get system prompt for PDFs
+                            const systemPrompt = Prompts.buildPdfDetailsSystemPrompt(lensName);
+
+                            // Invoke model with PDFs
+                            const bedrockClient = this.awsConfig.createBedrockClient();
+                            const modelId = this.configService.get<string>('aws.bedrock.modelId');
+                            const modelParams = this.getModelParameters();
+
+                            // Create message with user prompt
+                            const messages: Message[] = [
+                                {
+                                    role: "user",
+                                    content: [
+                                        {
+                                            text: detailsPrompt
+                                        }
+                                    ]
+                                }
+                            ];
+
+                            // Add PDF documents to message content (limit to 5 PDFs)
+                            const filesToProcess = Array.isArray(pdfFiles) ? pdfFiles.slice(0, 5) : [];
+                            for (const pdfFile of filesToProcess) {
+                                messages[0].content.push({
+                                    document: {
+                                        format: "pdf",
+                                        name: this.normalizeFileName(pdfFile.filename),
+                                        source: {
+                                            bytes: pdfFile.buffer
+                                        }
+                                    }
+                                });
+                            }
+
+                            // Add supporting document if available
+                            if (supportingDocContent && supportingDocType) {
+                                if (supportingDocType === 'text/plain') {
+                                    messages[0].content.push({ text: supportingDocContent });
+                                } else if (supportingDocType.startsWith('image/')) {
+                                    const supportingFormat = supportingDocType.split('/')[1];
+                                    messages[0].content.push({
+                                        image: {
+                                            format: supportingFormat as "png" | "jpeg" | "gif" | "webp",
+                                            source: { bytes: Buffer.from(supportingDocContent, 'base64') }
+                                        }
+                                    });
+                                } else if (supportingDocType === 'application/pdf') {
+                                    messages[0].content.push({
+                                        document: {
+                                            format: "pdf",
+                                            name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
+                                            source: { bytes: Buffer.from(supportingDocContent, 'base64') }
+                                        }
+                                    });
+                                }
+                            }
+
+                            const command = new ConverseCommand({
+                                modelId,
+                                ...modelParams,
+                                messages,
+                                system: [{ text: systemPrompt }]
+                            });
+
+                            const response = await bedrockClient.send(command);
+                            const responseText = response.output.message.content.find(c => c.text)?.text || '';
+
+                            const { content, isComplete: sectionComplete } = this.parseDetailsModelResponse(responseText);
+                            itemDetails += content;
+                            isComplete = sectionComplete;
+
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+
+                        // Update progress
+                        this.analyzerGateway.emitImplementationProgress({
+                            status: `Analyzing ${i + 1} of ${totalItems} selected best practices not applied - Best practice: '${item.name}'`,
+                            progress: Math.round(((i + 1) / totalItems) * 100)
+                        });
+
+                        allDetails += itemDetails + '\n\n---\n\n';
+                    } catch (error) {
+                        this.logger.error(`Error analyzing item ${i + 1}:`, error);
+                        hasError = true;
+                        // Continue with next item instead of stopping completely
+                        continue;
+                    }
+                }
+
+                this.analyzerGateway.emitImplementationProgress({
+                    status: 'Analysis complete',
+                    progress: 100
+                });
+
+                // If we have any details but also encountered errors
+                if (allDetails && hasError) {
+                    return {
+                        content: allDetails,
+                        error: 'Some items could not be analyzed. Showing partial results.'
+                    };
+                }
+
+                // If we have no details at all
+                if (!allDetails) {
+                    throw new Error('Failed to generate any detailed analysis');
+                }
+
+                return { content: allDetails.trim() };
+            }
+
             // Get the file content from storage
             const { data: fileContent } = await this.storageService.getOriginalContent(
                 userId,
@@ -1242,6 +1520,11 @@ export class AnalyzerService {
                         let response;
 
                         if (isImage) {
+
+                            if (typeof processedContent !== 'string') {
+                                throw new Error('Expected string content for image processing');
+                            }
+
                             // Invoke model for image details with supporting doc if available
                             const imageBase64Data = processedContent.split(',')[1];
                             const imageMediaType = processedContent.split(';')[0].split(':')[1];
@@ -1326,7 +1609,11 @@ export class AnalyzerService {
                             // For non-image files, use the text-based approach with supporting doc if available
                             const detailsPrompt = Prompts.buildDetailsPrompt(
                                 item,
-                                processedContent,
+                                typeof processedContent === 'string'
+                                    ? processedContent
+                                    : Array.isArray(processedContent)
+                                        ? `PDF files: ${processedContent.map(pdf => pdf.filename).join(', ')}`
+                                        : "Content not available as text",
                                 itemDetails,
                                 supportingDocName,
                                 supportingDocDescription
@@ -1518,17 +1805,27 @@ export class AnalyzerService {
                         vectorSearchConfiguration: {
                             numberOfResults: 10,
                             filter: {
-                                equals: {
-                                    key: "lens_name",
-                                    value: lensName
-                                }
+                                andAll: [
+                                    {
+                                        equals: {
+                                            key: "lens_name",
+                                            value: lensName
+                                        }
+                                    },
+                                    {
+                                        equals: {
+                                            key: "pillar",
+                                            value: pillar
+                                        }
+                                    }
+                                ]
                             }
                         },
                     },
                     generationConfiguration: {
                         inferenceConfig: {
                             textInferenceConfig: {
-                                maxTokens: 4096,
+                                maxTokens: 8192,
                                 temperature: 0.7
                             }
                         },
@@ -1547,7 +1844,7 @@ export class AnalyzerService {
     }
 
     private async analyzeQuestion(
-        fileContent: string,
+        fileContent: string | any,
         question: QuestionGroup,
         kbContexts: string[],
         fileType: string,
@@ -1560,6 +1857,24 @@ export class AnalyzerService {
         lensPillars?: Record<string, string>
     ): Promise<any> {
         try {
+            // Handle PDF files
+            if (uploadMode === FileUploadMode.PDF_FILE) {
+                // fileContent should be an array of PDF files with filename and buffer
+                const pdfFiles = fileContent;
+
+                return await this.analyzePdfFiles(
+                    pdfFiles,
+                    question,
+                    kbContexts,
+                    supportingDocContent,
+                    supportingDocType,
+                    supportingDocName,
+                    supportingDocDescription,
+                    lensName,
+                    lensPillars
+                );
+            }
+
             // Determine if it's an image
             const isImage = uploadMode === FileUploadMode.SINGLE_FILE && fileType.startsWith('image/');
 
@@ -1976,6 +2291,161 @@ export class AnalyzerService {
         } catch (error) {
             this.logger.error('Error invoking Bedrock model:', error);
             throw new Error(`Failed to generate IaC document. Error invoking Bedrock model: ${error}`);
+        }
+    }
+
+    /**
+ * Analyzes PDF files against AWS Well-Architected best practices
+ * @param pdfFiles Array of PDF files with filename and buffer
+ * @param question The question group containing best practices to evaluate
+ * @param kbContexts Knowledge base contexts retrieved from Bedrock
+ * @param supportingDocContent Supporting document content (if any)
+ * @param supportingDocType Supporting document type (if any)
+ * @param supportingDocName Supporting document name (if any)
+ * @param supportingDocDescription Supporting document description (if any)
+ * @param lensName Optional lens name
+ * @returns Analysis results
+ */
+    private async analyzePdfFiles(
+        pdfFiles: Array<{ filename: string, buffer: Buffer, size: number }>,
+        question: QuestionGroup,
+        kbContexts: string[],
+        supportingDocContent?: string,
+        supportingDocType?: string,
+        supportingDocName?: string,
+        supportingDocDescription?: string,
+        lensName?: string,
+        lensPillars?: Record<string, string>
+    ): Promise<any> {
+        try {
+            // Get the prompt
+            const prompt = Prompts.buildPrompt(question, kbContexts, supportingDocName, supportingDocDescription);
+
+            // Get system prompt for PDFs
+            const systemPrompt = Prompts.buildPdfSystemPrompt(question, lensName, pdfFiles.length, lensPillars);
+
+            // Invoke model with PDF files
+            const response = await this.invokeBedrockModelWithPdfs(
+                prompt,
+                systemPrompt,
+                pdfFiles,
+                supportingDocContent,
+                supportingDocType,
+                supportingDocName
+            );
+
+            return {
+                pillar: question.pillar,
+                question: question.title,
+                questionId: question.questionId,
+                bestPractices: this.parseModelResponse(response, question),
+            };
+        } catch (error) {
+            this.logger.error('Error analyzing PDF files:', error);
+            throw new Error(`Failed to analyze PDF files: ${error.message}`);
+        }
+    }
+
+    /**
+     * Invokes Bedrock model with PDF documents
+     * @param prompt The prompt text for analysis
+     * @param systemPrompt The system prompt for the model
+     * @param pdfFiles Array of PDF files with filename and buffer
+     * @param supportingDocContent Supporting document content (if any)
+     * @param supportingDocType Supporting document type (if any)
+     * @param supportingDocName Supporting document name (if any)
+     * @returns The model response
+     */
+    private async invokeBedrockModelWithPdfs(
+        prompt: string,
+        systemPrompt: string,
+        pdfFiles: Array<{ filename: string, buffer: Buffer, size: number }>,
+        supportingDocContent?: string,
+        supportingDocType?: string,
+        supportingDocName?: string
+    ): Promise<ModelResponse> {
+        const bedrockClient = this.awsConfig.createBedrockClient();
+        const modelId = this.configService.get<string>('aws.bedrock.modelId');
+
+        // Get model parameters based on the model type
+        const modelParams = this.getModelParameters();
+
+        try {
+            // Build message with user prompt
+            const messages: Message[] = [
+                {
+                    role: "user",
+                    content: [
+                        {
+                            text: prompt
+                        }
+                    ]
+                }
+            ];
+
+            // Add PDF documents to message content (limit to 5 PDFs as per Bedrock limits)
+            const filesToProcess = pdfFiles.slice(0, 5);
+            for (const pdfFile of filesToProcess) {
+                messages[0].content.push({
+                    document: {
+                        format: "pdf",
+                        name: this.normalizeFileName(pdfFile.filename),
+                        source: {
+                            bytes: pdfFile.buffer
+                        }
+                    }
+                });
+            }
+
+            // Add supporting document if provided
+            if (supportingDocContent && supportingDocType) {
+                if (supportingDocType === 'text/plain') {
+                    // For plain text
+                    messages[0].content.push({
+                        text: supportingDocContent
+                    });
+                } else if (supportingDocType.startsWith('image/')) {
+                    // For images
+                    const supportingFormat = supportingDocType.split('/')[1]; // Extract format
+                    messages[0].content.push({
+                        image: {
+                            format: supportingFormat as "png" | "jpeg" | "gif" | "webp",
+                            source: {
+                                bytes: Buffer.from(supportingDocContent, 'base64')
+                            }
+                        }
+                    });
+                } else if (supportingDocType === 'application/pdf') {
+                    // For PDF supporting document
+                    messages[0].content.push({
+                        document: {
+                            format: "pdf",
+                            name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
+                            source: {
+                                bytes: Buffer.from(supportingDocContent, 'base64')
+                            }
+                        }
+                    });
+                }
+            }
+
+            const command = new ConverseCommand({
+                modelId,
+                ...modelParams,
+                messages,
+                system: [{ text: systemPrompt }]
+            });
+
+            const response = await bedrockClient.send(command);
+
+            // Extract text from response
+            const responseText = response.output.message.content.find(c => c.text)?.text || '';
+
+            const cleanedAnalysisJsonString = this.cleanJsonString(responseText);
+            return JSON.parse(cleanedAnalysisJsonString);
+        } catch (error) {
+            this.logger.error('Error invoking Bedrock model with PDFs:', error);
+            throw new Error(`Failed to analyze PDF documents with AI model. Error invoking Bedrock model: ${error}`);
         }
     }
 

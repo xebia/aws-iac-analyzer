@@ -66,6 +66,10 @@ Additionally, an **interactive Analyzer Assistant chatbot** enables users to ask
 - Analyze complete IaC projects:
   - Multiple files at once
   - ZIP archives containing infrastructure code
+- Upload and analyze architectural documentation in PDF format:
+  - PDF documents (up to 5 files, max 4.5MB each)
+  - Only flowing text will be extracted from the PDF, embedded images will not be included.
+    - As of May 2025, Bedrock InvokeModel and Converse APIs does not support extracting embedded images from the PDF. This will be updated once supported.
 - Add supporting documents (PDF, TXT, PNG, JPEG) to provide additional context for analysis
 - Generate IaC templates from architecture diagrams
 - Real-time analysis against Well-Architected best practices

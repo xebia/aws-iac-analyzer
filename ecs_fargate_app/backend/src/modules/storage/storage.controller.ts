@@ -299,6 +299,17 @@ export class StorageController {
                     );
                     break;
 
+                case FileUploadMode.PDF_FILE:
+                    result = await this.storageService.handlePdfFiles(
+                        userId,
+                        files.map(file => ({
+                            filename: file.originalname,
+                            buffer: file.buffer,
+                            mimetype: file.mimetype
+                        }))
+                    );
+                    break;
+
                 default:
                     throw new HttpException(`Unsupported upload mode: ${uploadMode}`, HttpStatus.BAD_REQUEST);
             }

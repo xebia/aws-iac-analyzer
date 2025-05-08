@@ -49,15 +49,16 @@ export const helpContent = {
         body: (
             <SpaceBetween size="xxs">
                 <Box variant="p">
-                    Upload your Infrastructure as Code (IaC) documents or architecture diagram for analysis:
+                    Upload your Infrastructure as Code (IaC) documents, architecture diagram, or PDF documents for analysis:
                 </Box>
                 <ul>
                     <li>Supported IaC formats: YAML, JSON (CloudFormation), Terraform (.tf), and AWS CDK (.ts, .py, .go, .java, .cs)</li>
-                    <li>Supported image formats: PNG, JPG, JPEG</li>
-                    <li>Maximum file size: 100MB</li>
+                    <li>Supported image formats: PNG, JPG, JPEG (max 3.75MB per image, dimensions not exceeding 8000×8000 pixels)</li>
+                    <li>Supported document formats: PDF (up to 5 documents, max 4.5MB each)</li>
+                    <li>For IaC files and ZIP projects: maximum size 100MB</li>
                 </ul>
                 <Box variant="p">
-                    You can upload a single file, multiple related files, or a complete project. When uploading an architecture diagram, you can later generate IaC templates based on the analysis.
+                    You can upload a single IaC file, multiple related files, a complete project (ZIP), or architectural documentation as PDFs. When uploading an architecture diagram, you can later generate IaC templates based on the analysis.
                 </Box>
             </SpaceBetween>
         )
@@ -235,28 +236,28 @@ export const helpContent = {
     lensSelection: {
         header: 'Well-Architected Lens Selection',
         body: (
-          <SpaceBetween size="xxs">
-            <Box variant="p">
-              Select which AWS Well-Architected lens to use for analyzing your infrastructure:
-            </Box>
-            <ul>
-              <li><strong>Well-Architected Framework:</strong> The standard Well-Architected Framework with six pillars (Operational Excellence, Security, Reliability, Performance Efficiency, Cost Optimization, Sustainability)</li>
-              <li><strong>Specialized Lenses:</strong> Additional lenses focusing on specific technologies or domains, such as:</li>
-              <ul>
-                <li>Serverless Lens - For serverless application architectures</li>
-                <li>IoT Lens - For Internet of Things workloads</li>
-                <li>SaaS Lens - For Software-as-a-Service architectures</li>
-                <li>And other specialized industry and technology lenses</li>
-              </ul>
-            </ul>
-            <Box variant="p">
-              Each lens provides tailored best practices and recommendations specific to that domain or technology. The pillars available for review will change based on your selected lens.
-            </Box>
-            <Box variant="h4">Why use specialized lenses?</Box>
-            <Box variant="p">
-              Specialized lenses provide more targeted guidance for specific workload types. For example, the Serverless Lens includes best practices specifically relevant to serverless architecture that may not be covered in the standard Well-Architected Framework.
-            </Box>
-          </SpaceBetween>
+            <SpaceBetween size="xxs">
+                <Box variant="p">
+                    Select which AWS Well-Architected lens to use for analyzing your infrastructure:
+                </Box>
+                <ul>
+                    <li><strong>Well-Architected Framework:</strong> The standard Well-Architected Framework with six pillars (Operational Excellence, Security, Reliability, Performance Efficiency, Cost Optimization, Sustainability)</li>
+                    <li><strong>Specialized Lenses:</strong> Additional lenses focusing on specific technologies or domains, such as:</li>
+                    <ul>
+                        <li>Serverless Lens - For serverless application architectures</li>
+                        <li>IoT Lens - For Internet of Things workloads</li>
+                        <li>SaaS Lens - For Software-as-a-Service architectures</li>
+                        <li>And other specialized industry and technology lenses</li>
+                    </ul>
+                </ul>
+                <Box variant="p">
+                    Each lens provides tailored best practices and recommendations specific to that domain or technology. The pillars available for review will change based on your selected lens.
+                </Box>
+                <Box variant="h4">Why use specialized lenses?</Box>
+                <Box variant="p">
+                    Specialized lenses provide more targeted guidance for specific workload types. For example, the Serverless Lens includes best practices specifically relevant to serverless architecture that may not be covered in the standard Well-Architected Framework.
+                </Box>
+            </SpaceBetween>
         )
-      },
+    },
 };

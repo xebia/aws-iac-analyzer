@@ -431,10 +431,14 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
     // Store the fileId for later use
     let fileName = '';
     let fileType = '';
-
     if (files.singleFile) {
-      fileName = files.singleFile.name;
-      fileType = files.singleFile.type;
+      if (files.singleFile.type == 'application/pdf') {
+        fileName = `${files.singleFile.name}.zip`;
+        fileType = files.singleFile.type;
+      } else {
+        fileName = files.singleFile.name;
+        fileType = files.singleFile.type;
+      }
     } else if (files.zipFile) {
       fileName = files.zipFile.name;
       fileType = files.zipFile.type;

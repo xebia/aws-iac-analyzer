@@ -16,7 +16,7 @@ def download_file(url):
     return response.content
 
 
-def create_metadata_json(lens_name, lens_arn):
+def create_metadata_json(lens_name, lens_arn, pillar_name=None):
     """
     Creates metadata JSON content for a lens
     """
@@ -27,6 +27,11 @@ def create_metadata_json(lens_name, lens_arn):
             "lens_author": "AWS",
         }
     }
+
+    # Add pillar information for Well-Architected Framework
+    if lens_name == "Well-Architected Framework" and pillar_name:
+        metadata["metadataAttributes"]["pillar"] = pillar_name
+
     return json.dumps(metadata, indent=4)
 
 
@@ -42,11 +47,13 @@ def upload_to_s3(bucket_name, file_name, file_content, prefix=""):
         return False
 
 
-def upload_metadata_file(bucket_name, pdf_file_name, lens_name, lens_arn, prefix=""):
+def upload_metadata_file(
+    bucket_name, pdf_file_name, lens_name, lens_arn, pillar_name=None, prefix=""
+):
     """
     Create and upload a metadata JSON file for a PDF
     """
-    metadata_content = create_metadata_json(lens_name, lens_arn)
+    metadata_content = create_metadata_json(lens_name, lens_arn, pillar_name)
     metadata_file_name = f"{pdf_file_name}.metadata.json"
     return upload_to_s3(bucket_name, metadata_file_name, metadata_content, prefix)
 
@@ -190,6 +197,7 @@ def process_lens(bucket_name, workload_id, lens_data, is_primary_lens=False):
     lens_description = lens_data.get("lensDescription", "")
     lens_url = lens_data.get("url", "")
     lens_filename = lens_data.get("pdfName", "")
+    pillar_name = lens_data.get("pillarName")
 
     print(f"Processing lens: {lens_name} (alias: {lens_alias})")
 
@@ -207,7 +215,12 @@ def process_lens(bucket_name, workload_id, lens_data, is_primary_lens=False):
 
             # Upload metadata file alongside the PDF
             upload_metadata_file(
-                bucket_name, lens_filename, lens_name, lens_alias, prefix=s3_prefix
+                bucket_name,
+                lens_filename,
+                lens_name,
+                lens_alias,
+                pillar_name=pillar_name,
+                prefix=s3_prefix,
             )
     except Exception as e:
         print(f"Error downloading/uploading PDF for lens {lens_alias}: {e}")
@@ -305,6 +318,7 @@ def handler(event, context):
             "lensName": "Well-Architected Framework",
             "lensArn": "arn:aws:wellarchitected::aws:lens/wellarchitected",
             "lensDescription": "AWS Well-Architected helps cloud architects build secure, high-performing, resilient, and efficient infrastructure for a variety of applications and workloads.",
+            "pillarName": "Cost Optimization",
         },
         {
             "url": "https://docs.aws.amazon.com/pdfs/wellarchitected/latest/operational-excellence-pillar/wellarchitected-operational-excellence-pillar.pdf",
@@ -312,6 +326,7 @@ def handler(event, context):
             "lensName": "Well-Architected Framework",
             "lensArn": "arn:aws:wellarchitected::aws:lens/wellarchitected",
             "lensDescription": "AWS Well-Architected helps cloud architects build secure, high-performing, resilient, and efficient infrastructure for a variety of applications and workloads.",
+            "pillarName": "Operational Excellence",
         },
         {
             "url": "https://docs.aws.amazon.com/pdfs/wellarchitected/latest/performance-efficiency-pillar/wellarchitected-performance-efficiency-pillar.pdf",
@@ -319,6 +334,7 @@ def handler(event, context):
             "lensName": "Well-Architected Framework",
             "lensArn": "arn:aws:wellarchitected::aws:lens/wellarchitected",
             "lensDescription": "AWS Well-Architected helps cloud architects build secure, high-performing, resilient, and efficient infrastructure for a variety of applications and workloads.",
+            "pillarName": "Performance Efficiency",
         },
         {
             "url": "https://docs.aws.amazon.com/pdfs/wellarchitected/latest/reliability-pillar/wellarchitected-reliability-pillar.pdf",
@@ -326,6 +342,7 @@ def handler(event, context):
             "lensName": "Well-Architected Framework",
             "lensArn": "arn:aws:wellarchitected::aws:lens/wellarchitected",
             "lensDescription": "AWS Well-Architected helps cloud architects build secure, high-performing, resilient, and efficient infrastructure for a variety of applications and workloads.",
+            "pillarName": "Reliability",
         },
         {
             "url": "https://docs.aws.amazon.com/pdfs/wellarchitected/latest/security-pillar/wellarchitected-security-pillar.pdf",
@@ -333,6 +350,7 @@ def handler(event, context):
             "lensName": "Well-Architected Framework",
             "lensArn": "arn:aws:wellarchitected::aws:lens/wellarchitected",
             "lensDescription": "AWS Well-Architected helps cloud architects build secure, high-performing, resilient, and efficient infrastructure for a variety of applications and workloads.",
+            "pillarName": "Security",
         },
         {
             "url": "https://docs.aws.amazon.com/pdfs/wellarchitected/latest/sustainability-pillar/wellarchitected-sustainability-pillar.pdf",
@@ -340,6 +358,7 @@ def handler(event, context):
             "lensName": "Well-Architected Framework",
             "lensArn": "arn:aws:wellarchitected::aws:lens/wellarchitected",
             "lensDescription": "AWS Well-Architected helps cloud architects build secure, high-performing, resilient, and efficient infrastructure for a variety of applications and workloads.",
+            "pillarName": "Sustainability",
         },
     ]
 
@@ -478,11 +497,12 @@ def handler(event, context):
                 file_data["pdfName"],
                 "Well-Architected Framework",
                 "arn:aws:wellarchitected::aws:lens/wellarchitected",
+                pillar_name=file_data["pillarName"],
                 prefix="wellarchitected",
             )
         except Exception as e:
             print(
-                f"Error processing Well-Architected document {file_data['name']}: {e}"
+                f"Error processing Well-Architected document {file_data['pdfName']}: {e}"
             )
 
     # Now process the wellarchitected lens as a whole

@@ -16,13 +16,13 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { createHash } from 'crypto';
+import * as AdmZip from 'adm-zip';
 import {
   WorkItem,
   WorkItemUpdate,
   S3Locations,
   StorageConfig,
-  LensInfo,
-  WorkloadIdInfo
+  LensInfo
 } from '../../shared/interfaces/storage.interface';
 import { FileUploadMode } from '../../shared/dto/analysis.dto';
 import { ProjectPacker } from '../../shared/utils/project-packer';
@@ -62,21 +62,21 @@ export class StorageService {
       originalContent: `${prefix}/original_content`,
       packedContent: `${prefix}/packed_content`,
       chatHistory: `${prefix}/chat_history.json`,
-      
+
       // Get lens-specific paths
       getAnalysisResultsPath: (lensAlias: string): string => {
         return `${prefix}/analysis/${lensAlias}/analysis_results.json`;
       },
-      
+
       getIaCDocumentPath: (lensAlias: string, extension?: string): string => {
         const basePath = `${prefix}/iac_templates/${lensAlias}/generated_template`;
         return extension ? `${basePath}.${extension}` : basePath;
       },
-      
+
       getSupportingDocumentPath: (lensAlias: string, documentId: string): string => {
         return `${prefix}/supporting_documents/${lensAlias}/${documentId}`;
       },
-      
+
       getSupportingDocumentMetadataPath: (lensAlias: string, documentId: string): string => {
         return `${prefix}/supporting_documents/${lensAlias}/${documentId}_metadata.json`;
       }
@@ -109,9 +109,9 @@ export class StorageService {
             ContentType: 'application/json',
           },
         });
-  
+
         await upload.done();
-  
+
         // Set hasChatHistory to true
         await dynamoClient.send(
           new UpdateItemCommand({
@@ -189,10 +189,10 @@ export class StorageService {
         } catch (updateError) {
           this.logger.warn('Error updating hasChatHistory flag:', updateError);
         }
-        
+
         return [];
       }
-      
+
       this.logger.error('Error getting chat history:', error);
       throw new Error('Failed to get chat history');
     }
@@ -263,7 +263,7 @@ export class StorageService {
 
     // Get S3 locations
     const s3Locations = this.getS3Locations(userId, mainFileId);
-    
+
     try {
       // Store supporting document in S3 with lens-specific path
       const upload = new Upload({
@@ -306,20 +306,20 @@ export class StorageService {
 
       // Get current work item to update lens-specific supporting document fields
       const workItem = await this.getWorkItem(userId, mainFileId);
-      
+
       // Initialize or update lens information
       let usedLenses: LensInfo[] = workItem.usedLenses || [];
-      
+
       // Get lens name from existing lenses or use default
       const lensName = this.getLensNameFromAlias(usedLenses, lensAlias);
-      
+
       // Check if lens already exists in usedLenses
       if (!usedLenses.some(lens => lens.lensAlias === lensAlias)) {
         usedLenses.push({ lensAlias, lensName, lensAliasArn });
       }
-      
+
       // Initialize or update lens-specific supporting document maps
-      let supportingDocId: Record<string, string> = { 
+      let supportingDocId: Record<string, string> = {
         ...(workItem.supportingDocumentId || {})
       };
       let supportingDocAdded: Record<string, boolean> = {
@@ -334,7 +334,7 @@ export class StorageService {
       let supportingDocType: Record<string, string> = {
         ...(workItem.supportingDocumentType || {})
       };
-      
+
       // Set values for this lens
       supportingDocId[lensAlias] = supportingDocIdHash;
       supportingDocAdded[lensAlias] = true;
@@ -366,14 +366,14 @@ export class StorageService {
     if (lens) {
       return lens.lensName;
     }
-    
+
     // Default names for common lenses if not found
     if (lensAlias === 'wellarchitected') {
       return 'Well-Architected Framework';
     } else if (lensAlias === 'serverless') {
       return 'Serverless Lens';
     }
-    
+
     // Generic fallback
     return `Lens: ${lensAlias}`;
   }
@@ -452,7 +452,7 @@ export class StorageService {
       // Create file ID
       const fileId = this.createFileIdHash(filename + Date.now().toString());
       const timestamp = new Date().toISOString();
-      
+
       // Create work item
       const workItem: WorkItem = {
         userId,
@@ -527,7 +527,7 @@ export class StorageService {
       const combinedFilename = files.length < 2
         ? files.map(f => f.filename).join('_')
         : `${files[0].filename}_and_${files.length - 1}_more_files.zip`;
-      
+
       const workItem: WorkItem = {
         userId,
         fileId,
@@ -734,16 +734,16 @@ export class StorageService {
     }
 
     const dynamoClient = this.awsConfig.createDynamoDBClient();
-    
+
     try {
       // Get the current work item to correctly merge updates
       const currentWorkItem = await this.getWorkItem(userId, fileId);
-      
+
       // Build the update expression parts
       const updateExpressions: string[] = [];
       const expressionAttributeNames: Record<string, string> = {};
       const expressionAttributeValues: Record<string, any> = {};
-      
+
       // Handle flat fields
       const flatFields = ['lastModified', 'uploadMode', 'hasChatHistory', 'workloadId', 'exceedsTokenLimit', 'tokenCount'];
       flatFields.forEach(field => {
@@ -753,7 +753,7 @@ export class StorageService {
           expressionAttributeValues[`:${field}`] = updates[field];
         }
       });
-      
+
       // Handle usedLenses specially
       if (updates.usedLenses !== undefined) {
         updateExpressions.push(`#usedLenses = :usedLenses`);
@@ -767,16 +767,16 @@ export class StorageService {
         expressionAttributeNames[`#workloadIds`] = 'workloadIds';
         expressionAttributeValues[`:workloadIds`] = updates.workloadIds;
       }
-      
+
       // Handle lens-specific map fields
       const mapFields = [
         'analysisStatus', 'analysisProgress', 'analysisError', 'analysisPartialResults',
-        'iacGenerationStatus', 'iacGenerationProgress', 'iacGenerationError', 
+        'iacGenerationStatus', 'iacGenerationProgress', 'iacGenerationError',
         'iacGeneratedFileType', 'iacPartialResults',
         'supportingDocumentId', 'supportingDocumentAdded', 'supportingDocumentDescription',
         'supportingDocumentName', 'supportingDocumentType'
       ];
-      
+
       mapFields.forEach(field => {
         if (updates[field] !== undefined) {
           // For new work items or updating entire map
@@ -785,15 +785,15 @@ export class StorageService {
           expressionAttributeValues[`:${field}`] = updates[field];
         }
       });
-      
+
       // If there are no updates, return the current work item
       if (updateExpressions.length === 0) {
         return currentWorkItem;
       }
-      
+
       // Build the update expression
       const updateExpression = `SET ${updateExpressions.join(', ')}`;
-      
+
       const result = await dynamoClient.send(
         new UpdateItemCommand({
           TableName: this.config.table,
@@ -997,12 +997,12 @@ export class StorageService {
 
       // Get the current work item to update lens-specific fields
       const workItem = await this.getWorkItem(userId, fileId);
-      
+
       // Initialize or update lens-specific iacGeneratedFileType
       let iacGeneratedFileType: Record<string, string> = {
         ...(workItem.iacGeneratedFileType || {})
       };
-      
+
       // Set the template type for this lens
       iacGeneratedFileType[lensAlias] = templateType;
 
@@ -1035,7 +1035,7 @@ export class StorageService {
       if (!workItem) {
         workItem = await this.getWorkItem(userId, fileId);
       }
-      
+
       // Check if this lens exists in the workItem
       if (!workItem.usedLenses?.some(lens => lens.lensAlias === lensAlias)) {
         throw new Error(`No lens '${lensAlias}' found for this work item`);
@@ -1117,11 +1117,92 @@ export class StorageService {
     }
   }
 
+  /**
+ * Handles uploading PDF files
+ * @param userId User ID
+ * @param files Array of files with filename, buffer, and mimetype
+ * @returns Object containing file ID
+ */
+  async handlePdfFiles(
+    userId: string,
+    files: Array<{ filename: string; buffer: Buffer; mimetype: string }>
+  ): Promise<{ fileId: string }> {
+    try {
+      // Check number of PDF files
+      if (files.length > 5) {
+        throw new Error('Maximum 5 PDF documents allowed.');
+      }
+
+      // Check file sizes
+      const MAX_PDF_SIZE = 4.5 * 1024 * 1024; // 4.5MB
+      for (const file of files) {
+        if (file.buffer.length > MAX_PDF_SIZE) {
+          throw new Error(`PDF file ${file.filename} exceeds the 4.5MB size limit.`);
+        }
+
+        // Verify file type is PDF
+        if (!file.mimetype.includes('pdf')) {
+          throw new Error(`File ${file.filename} is not a PDF document.`);
+        }
+      }
+
+      // Create zip containing all PDFs
+      const zip = new AdmZip();
+      files.forEach(file => {
+        zip.addFile(file.filename, file.buffer);
+      });
+
+      // Generate zip buffer
+      const zipBuffer = zip.toBuffer();
+
+      // Create file ID
+      const fileId = this.createFileIdHash(files[0].filename + Date.now().toString());
+      const timestamp = new Date().toISOString();
+
+      // Create work item
+      const workItem: WorkItem = {
+        userId,
+        fileId,
+        fileName: files.length === 1 ?
+          `${files[0].filename}.zip` :
+          `${files[0].filename}_and_${files.length - 1}_more_files.zip`,
+        fileType: 'application/pdf',
+        uploadDate: timestamp,
+        s3Prefix: `${userId}/${fileId}`,
+        lastModified: timestamp,
+        uploadMode: FileUploadMode.PDF_FILE,
+      };
+
+      // Store work item in DynamoDB
+      await this.storeWorkItemInDynamoDB(workItem);
+
+      // Store the zipped PDFs in S3
+      const s3Locations = this.getS3Locations(userId, fileId);
+
+      const upload = new Upload({
+        client: this.awsConfig.createS3Client(),
+        params: {
+          Bucket: this.config.bucket,
+          Key: s3Locations.originalContent,
+          Body: zipBuffer,
+          ContentType: 'application/zip',
+        },
+      });
+
+      await upload.done();
+
+      return { fileId };
+    } catch (error) {
+      this.logger.error('Error handling PDF files:', error);
+      throw new Error(`Failed to process PDF files: ${error.message}`);
+    }
+  }
+
   async getOriginalContent(
     userId: string,
     fileId: string,
     forDownload: boolean = false
-  ): Promise<{ data: string | Buffer; contentType: string }> {
+  ): Promise<{ data: string | Buffer | Array<{ filename: string, buffer: Buffer, size: number }>; contentType: string }> {
     if (!this.config.enabled) {
       throw new Error('Storage is not enabled');
     }
@@ -1130,8 +1211,35 @@ export class StorageService {
     const s3Locations = this.getS3Locations(userId, fileId);
 
     try {
-      // Get the work item to check for upload mode
+      // First get the work item to get the file type
       const workItem = await this.getWorkItem(userId, fileId);
+
+      // Special handling for PDF_FILE mode when not for download
+      if (workItem.uploadMode === FileUploadMode.PDF_FILE && !forDownload) {
+        const result = await s3Client.send(
+          new GetObjectCommand({
+            Bucket: this.config.bucket,
+            Key: s3Locations.originalContent,
+          }),
+        );
+
+        const responseBytes = await result.Body.transformToByteArray();
+        const zipBuffer = Buffer.from(responseBytes);
+        const zip = new AdmZip(zipBuffer);
+
+        // Extract PDF files
+        const zipEntries = zip.getEntries();
+        const pdfFiles = zipEntries.map(entry => ({
+          filename: entry.entryName,
+          size: entry.header.size,
+          buffer: entry.getData()
+        }));
+
+        return {
+          data: pdfFiles,
+          contentType: 'application/pdf-collection',
+        };
+      }
 
       // If it's a multi-file or zip upload mode and not for download, get packed content
       if ((workItem.uploadMode === FileUploadMode.MULTIPLE_FILES ||
@@ -1147,6 +1255,24 @@ export class StorageService {
           this.logger.warn(`Packed content not found for ${fileId}, falling back to original content`);
           // Fall back to original content if packed content is not found
         }
+      }
+
+      // Get content for PDF_FILE mode for download
+      if (workItem.uploadMode === FileUploadMode.PDF_FILE && forDownload) {
+        const result = await s3Client.send(
+          new GetObjectCommand({
+            Bucket: this.config.bucket,
+            Key: s3Locations.originalContent,
+          }),
+        );
+
+        const contentType = result.ContentType || 'application/zip';
+        const response = await result.Body.transformToByteArray();
+
+        return {
+          data: Buffer.from(response),
+          contentType,
+        };
       }
 
       // Get original content (for single file mode or download)

@@ -45,9 +45,9 @@ export function buildImageSystemPrompt(
       "name": [Exact Best Practice Name as given in Best Practices in the "<best_practices_json>" section],
       "relevant": [Boolean],
       "applied": [Boolean - Only add this field when relevant=true],
-      "reasonApplied": [Why do you consider this best practice is already applied or followed in the provided architecture diagram? (Important: 50 words maximum and only add this field when relevant=true and applied=true)],
-      "reasonNotApplied": [Why do you consider this best practice is not applied or followed in the provided architecture diagram? (Important: 50 words maximum and only add this field when relevant=true and applied=false)],
-      "recommendations": [Provide recommendations for the best practice. Include what is the risk of not following, and also provide recommendations and examples of how to implement this best practice. (Important: 350 words maximum and only add this field when relevant=true and applied=false)]
+      "reasonApplied": [Why do you consider this best practice is already applied or followed in the provided architecture diagram? (Important: 100 words maximum and only add this field when relevant=true and applied=true)],
+      "reasonNotApplied": [Why do you consider this best practice is not applied or followed in the provided architecture diagram? (Important: 100 words maximum and only add this field when relevant=true and applied=false)],
+      "recommendations": [Provide recommendations for the best practice. Include what is the risk of not following, and also provide recommendations and examples of how to implement this best practice. (Important: 400 words maximum and only add this field when relevant=true and applied=false)]
     }
   ]
 }
@@ -89,7 +89,7 @@ For your reference, below is an example of how the JSON-formatted response shoul
 
 3) Do not rephrase or summarize the practice name, and DO NOT skip any of the ${numberOfBestPractices} best practices listed in the "<best_practices_json>" section.
 4) Do not make any assumptions or make up information. Your responses should only be based on the actual architecture diagram provided.
-5) You are also provided with a Knowledge Base which has more information about the specific question from the ${lensContext}. The relevant parts from the Knowledge Base will be provided under the "<kb>" section.
+5) You are also provided with a Knowledge Base which has information about the specific question's best practices from the ${lensContext}. The relevant parts from the Knowledge Base will be provided under the "<kb>" section.
 
 <note_on_relevance>
 When determining if a best practice is "relevant", consider whether it can be meaningfully assessed from the technical artifact provided:
@@ -159,9 +159,9 @@ export function buildSystemPrompt(
           "name": [Exact Best Practice Name as given in Best Practices in the "<best_practices_json>" section],
           "relevant": [Boolean],
           "applied": [Boolean - Only add this field when relevant=true],
-          "reasonApplied": [Why do you consider this best practice is already applied or followed in the provided architecture document? (Important: 50 words maximum and only add this field when applied=true)],
-          "reasonNotApplied": [Why do you consider this best practice is not applied or followed in the provided architecture document? (Important: 50 words maximum and only add this field when applied=false)],
-          "recommendations": [Provide recommendations for the best practice. Include what is the risk of not following, and also provide recommendations and examples of how to implement this best practice. (Important: 350 words maximum and only add this field when applied=false)]
+          "reasonApplied": [Why do you consider this best practice is already applied or followed in the provided architecture document? (Important: 100 words maximum and only add this field when applied=true)],
+          "reasonNotApplied": [Why do you consider this best practice is not applied or followed in the provided architecture document? (Important: 100 words maximum and only add this field when applied=false)],
+          "recommendations": [Provide recommendations for the best practice. Include what is the risk of not following, and also provide recommendations and examples of how to implement this best practice. (Important: 400 words maximum and only add this field when applied=false)]
         }
       ]
   }
@@ -200,7 +200,7 @@ export function buildSystemPrompt(
 
   3) Do not rephrase or summarize the practice name, and DO NOT skip any of the ${numberOfBestPractices} best practices listed in the "<best_practices_json>" section.
   4) Do not make any assumptions or make up information. Your responses should only be based on the actual solution document provided in the "uploaded_template_document" section below.
-  5) You are also provided with a Knowledge Base which has more information about the specific question from the ${lensContext}. The relevant parts from the Knowledge Base will be provided under the "<kb>" section.
+  5) You are also provided with a Knowledge Base which has information about the specific question's best practices from the ${lensContext}. The relevant parts from the Knowledge Base will be provided under the "<kb>" section.
 
   <note_on_relevance>
 When determining if a best practice is "relevant", consider whether it can be meaningfully assessed from the technical artifact provided:
@@ -274,9 +274,9 @@ export function buildProjectSystemPrompt(
           "name": [Exact Best Practice Name as given in Best Practices in the "<best_practices_json>" section],
           "relevant": [Boolean],
           "applied": [Boolean],
-          "reasonApplied": [Why do you consider this best practice is already applied or followed in the provided project? Mention the specific file(s) where this is implemented. (Important: 50 words maximum and only add this field when applied=true)],
-          "reasonNotApplied": [Why do you consider this best practice is not applied or followed in the provided project? (Important: 50 words maximum and only add this field when applied=false)],
-          "recommendations": [Provide recommendations for the best practice. Include what is the risk of not following, and also provide recommendations and examples of how to implement this best practice. Reference specific files from the project where the change should be made. (Important: 350 words maximum and only add this field when applied=false)]
+          "reasonApplied": [Why do you consider this best practice is already applied or followed in the provided project? Mention the specific file(s) where this is implemented. (Important: 100 words maximum and only add this field when applied=true)],
+          "reasonNotApplied": [Why do you consider this best practice is not applied or followed in the provided project? (Important: 100 words maximum and only add this field when applied=false)],
+          "recommendations": [Provide recommendations for the best practice. Include what is the risk of not following, and also provide recommendations and examples of how to implement this best practice. Reference specific files from the project where the change should be made. (Important: 400 words maximum and only add this field when applied=false)]
         }
       ]
   }
@@ -311,7 +311,7 @@ export function buildProjectSystemPrompt(
 
   3) Do not rephrase or summarize the practice name, and DO NOT skip any of the ${numberOfBestPractices} best practices listed in the "<best_practices_json>" section.
   4) Do not make any assumptions or make up information. Your responses should only be based on the actual project provided in the "uploaded_project" section below.
-  5) You are also provided with a Knowledge Base which has more information about the specific question from the ${lensContext}. The relevant parts from the Knowledge Base will be provided under the "<kb>" section.
+  5) You are also provided with a Knowledge Base which has information about the specific question's best practices from the ${lensContext}. The relevant parts from the Knowledge Base will be provided under the "<kb>" section.
   6) When referencing files in your response, use the exact file paths as shown in the "Directory Structure" section of the uploaded project.
 
   <note_on_relevance>
@@ -492,4 +492,121 @@ export function buildImageDetailsSystemPrompt(templateType: IaCTemplateType, mod
   
       If you have completed your analysis, add "<end_of_details_generation>"
       If you have more details to provide, end with "<details_truncated>"`;
+}
+
+/**
+ * Generates a system prompt for analyzing PDF documents
+ * @param question The question group containing best practices to evaluate
+ * @param lensName Optional lens name
+ * @param numberOfPdfs Number of PDF files being analyzed
+ * @param lensPillars Optional record of pillar IDs to names
+ * @returns A system prompt for PDF document analysis
+ */
+export function buildPdfSystemPrompt(
+  question: QuestionGroup,
+  lensName?: string,
+  numberOfPdfs: number = 1,
+  lensPillars?: Record<string, string>
+): string {
+  const numberOfBestPractices = question.bestPractices.length;
+  
+  // Format pillar names as comma-separated string if lensPillars is provided
+  const formattedPillarNames = lensPillars ? 
+    Object.values(lensPillars).join(', ') : 
+    'Operational Excellence, Security, Reliability, Performance Efficiency, Cost Optimization, and Sustainability';
+
+  // Count pillars if available
+  const pillarCount = lensPillars ? Object.keys(lensPillars).length : 6;
+  
+  // Determine lens context
+  const lensContext = lensName && lensName !== 'Well-Architected Framework'
+    ? `AWS Well-Architected ${lensName}`
+    : 'AWS Well-Architected Framework';
+
+  return `
+  You are an AWS Cloud Solutions Architect who specializes in reviewing architecture documentation against the ${lensContext}, using a process called the Well-Architected Framework Review (WAFR).
+  The WAFR process consists of evaluating the provided architecture documentation against the ${pillarCount} pillars of the ${lensContext} - ${formattedPillarNames} - by asking fixed questions for each pillar.
+  
+  ${numberOfPdfs} PDF document${numberOfPdfs > 1 ? 's have' : ' has'} been provided containing architecture documentation. Follow the instructions listed under "<instructions>" section below.
+  
+  <instructions>
+  1) In the "<best_practices_json>" section, you are provided with the name of the ${numberOfBestPractices} Best Practices related to the questions "${question.title}" of the ${lensContext}. For each Best Practice, first, determine if it is relevant to the provided PDF architecture documentation file(s) (refer to the <note_on_relevance> section below for more details). Then, if considered relevant, determine if it is applied or not in the given documentation.
+  2) For each of the ${numberOfBestPractices} best practices listed in the "<best_practices_json>" section, create and return your answer as a JSON between <json_response> and </json_response> tags following the exact format below:
+  \`\`\`
+  <json_response>
+  {
+      "bestPractices": [
+        {
+          "name": [Exact Best Practice Name as given in Best Practices in the "<best_practices_json>" section],
+          "relevant": [Boolean],
+          "applied": [Boolean - Only add this field when relevant=true],
+          "reasonApplied": [Why do you consider this best practice is already applied or followed in the provided architecture document? Include specific PDF file name and section references. (Important: 150 words maximum and only add this field when relevant=true and applied=true)],
+          "reasonNotApplied": [Why do you consider this best practice is not applied or followed in the provided architecture document? Include specific PDF file name and section references where applicable. (Important: 150 words maximum and only add this field when relevant=true and applied=false)],
+          "recommendations": [Provide recommendations for the best practice. Include what is the risk of not following, and also provide recommendations and examples of how to implement this best practice, citing specific PDF file name and section references where the recommendation applies. (Important: 400 words maximum and only add this field when relevant=true and applied=false)]
+        }
+      ]
+  }
+  </json_response>
+  \`\`\`
+
+  3) Do not rephrase or summarize the practice name, and DO NOT skip any of the ${numberOfBestPractices} best practices listed in the "<best_practices_json>" section.
+  4) Do not make any assumptions or make up information. Your responses should only be based on the information provided in the attached PDF architecture documentation file(s).
+  5) When referencing the PDF documentation, always cite the specific PDF file name and the section where you found evidence related to your analysis (e.g., "In Architecture.pdf, around the section about "Implemented Service Control Policies" ").
+  6) You are also provided with a Knowledge Base which has information about the specific question's best practices from the ${lensContext}. The relevant parts from the Knowledge Base will be provided under the "<kb>" section.
+  
+  <note_on_relevance>
+When determining if a best practice is "relevant", consider whether it can be meaningfully assessed from the documentation provided:
+
+1. Mark a best practice as "relevant: true" ONLY if:
+   - The [**Technical Relevancy score:**] for the particular best practice within the <kb> section is 7 or greater than 7.
+   - It directly relates to AWS resources, configurations, architecture patterns, or technical implementations
+   - Evidence of its application (or lack thereof) can be observed from the information provided in the PDF documentation file(s)
+
+2. Mark a best practice as "relevant: false" if:
+   - The [**Technical Relevancy score:**] for the particular best practice within the <kb> section is 6 or less than 6.
+   - It primarily concerns organizational processes, team structures, or governance (e.g., "Establish ownership of cost optimization")
+   - It focuses on business practices not reflected in technical implementations (e.g., "Evaluate external customer needs")
+   - It involves human procedures, meetings, or operational activities that happen outside the infrastructure definition
+   - It cannot be reasonably assessed by examining the documentation provided
+
+For best practices marked as "relevant: false", do not include the "applied" field or any recommendations, as these cannot be meaningfully determined from the provided artifact.
+</note_on_relevance>
+  </instructions>
+  `;
+}
+
+/**
+ * Generates a system prompt for getting detailed analysis of PDF document best practices
+ * @param lensName Optional lens name
+ * @returns A system prompt for detailed PDF analysis
+ */
+export function buildPdfDetailsSystemPrompt(lensName?: string): string {
+  // Determine lens context
+  const lensContext = lensName && lensName !== 'Well-Architected Framework'
+    ? `AWS Well-Architected ${lensName}`
+    : 'AWS Well-Architected Framework';
+
+  return `You are an AWS Cloud Solutions Architect who specializes in reviewing solution architectures and documentation against the ${lensContext}. Your answer should be formatted in Markdown.
+
+You are provided with PDF documents containing architecture details, considerations, and configurations. You are also provided details about best practices that need further analysis in the <bp_recommendation_analysis> section.
+
+For the best practice provided in the <bp_recommendation_analysis> section:
+1. Provide detailed implementation guidance based on the content in the PDF documents
+2. Always cite specific PDF file names and section where you find relevant information
+3. Include risks of not implementing the best practice
+4. Provide specific AWS services and features recommendations
+5. If you have completed your detailed analysis, add the marker "<end_of_details_generation>" at the very end
+6. If you have more details to provide, end your response with "<details_truncated>"
+7. Your response should be detailed and comprehensive, between 1000-3000 words in length
+
+Structure your response as:
+# {Pillar as in the <bp_recommendation_analysis> section} - {Best Practice Name as in the <bp_recommendation_analysis> section}
+## Implementation Guidance
+[Your guidance here, citing PDF file names and sections in the file]
+## Architecture Considerations
+[Key considerations based on the PDF content]
+## Risks
+[Analysis of risks if not implemented]
+## AWS Service Recommendations
+[Specific AWS services and features to implement this best practice]`;
 }

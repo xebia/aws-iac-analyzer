@@ -94,7 +94,8 @@ export interface UploadedFiles {
 export enum FileUploadMode {
   SINGLE_FILE = 'single_file',
   MULTIPLE_FILES = 'multiple_files',
-  ZIP_FILE = 'zip_file'
+  ZIP_FILE = 'zip_file',
+  PDF_FILE = 'pdf_file'
 }
 
 export enum FileType {
