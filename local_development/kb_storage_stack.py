@@ -1,5 +1,6 @@
 """CDK stack for deploying only Knowledge Base and Storage resources"""
 
+import time
 import uuid
 
 import aws_cdk as cdk
@@ -214,6 +215,8 @@ class KBStorageStack(Stack):
             targets=[targets.LambdaFunction(kb_lambda_synchronizer)],
         )
 
+        deployment_timestamp = int(time.time())
+
         # Custom resource to trigger the KB Lambda synchronizer during deployment
         kb_lambda_trigger_cr = cr.AwsCustomResource(
             self,
@@ -223,10 +226,21 @@ class KBStorageStack(Stack):
                 action="invoke",
                 parameters={
                     "FunctionName": kb_lambda_synchronizer.function_name,
-                    "InvocationType": "Event",  # Asynchronous invocation
+                    "InvocationType": "Event",
                 },
                 physical_resource_id=cr.PhysicalResourceId.of(
-                    "KbLambdaSynchronizerTrigger"
+                    f"KbLambdaSynchronizerTrigger-{deployment_timestamp}"
+                ),
+            ),
+            on_update=cr.AwsSdkCall(
+                service="Lambda",
+                action="invoke",
+                parameters={
+                    "FunctionName": kb_lambda_synchronizer.function_name,
+                    "InvocationType": "Event",
+                },
+                physical_resource_id=cr.PhysicalResourceId.of(
+                    f"KbLambdaSynchronizerTrigger-{deployment_timestamp}"
                 ),
             ),
             # Use explicit IAM policy statement instead of from_sdk_calls
