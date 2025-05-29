@@ -626,12 +626,27 @@ To simplify setup for development, you can deploy just the required Knowledge Ba
    cd local_development
    ```
 
-2. Install the required dependencies:
+2. Set Up Python Virtual Environment
    ```bash
-   pip install -r requirements.txt
+   # Create virtual environment
+   python -m venv .venv
+
+   # Activate virtual environment
+   # On Linux/macOS:
+   source .venv/bin/activate
+   # On Windows:
+   .venv\Scripts\activate
+
+   # Verify you're in the virtual environment
+   # You should see (.venv) at the beginning of your prompt
    ```
 
-3. Deploy the KB storage stack:
+3. Install the required dependencies:
+   ```bash
+   pip3 install -r requirements.txt
+   ```
+
+4. Deploy the KB storage stack:
    ```bash
    # Set your preferred AWS region
    export CDK_DEPLOY_REGION=us-west-2 # Or your preferred region where you have enabled the LLM models
@@ -644,7 +659,7 @@ To simplify setup for development, you can deploy just the required Knowledge Ba
    cdk deploy --require-approval never
    ```
 
-4. After deployment completes, note the outputs from the CloudFormation stack:
+5. After deployment completes, note the outputs from the CloudFormation stack:
    - `KnowledgeBaseID`: Use for KNOWLEDGE_BASE_ID in your .env file in the following section.
    - `WellArchitectedDocsS3Bucket`: Use for WA_DOCS_S3_BUCKET in your .env file in the following section.
    - `LensMetadataTableName`: Use for LENS_METADATA_TABLE in your .env file in the following section.
