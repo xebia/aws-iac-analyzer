@@ -15,6 +15,7 @@ import { socketService } from '../services/socket';
 import { IaCTemplateSelector } from './IaCTemplateSelector';
 import { Chat } from './chat';
 import { LensSelector } from './LensSelector';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const DEFAULT_PILLARS: WellArchitectedPillar[] = [
   { id: 'operational-excellence', name: 'Operational Excellence', selected: true },
@@ -124,6 +125,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   } = useAnalyzer();
 
   // Check if analysis is complete and results are available
+  const { strings } = useLanguage();
   const isAnalysisComplete = Boolean(analysisResults && analysisResults.length > 0);
 
   useEffect(() => {
@@ -958,7 +960,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                         />
                         {selectedLanguage.value !== 'en' && (
                           <Alert type="info">
-                            Analysis results will be generated in {selectedLanguage.label}. Best practice names will remain in English for consistency with AWS documentation.
+                            {strings.wellArchitectedAnalyzer.analysisLanguageNotice.replace('{language}', selectedLanguage.label || '日本語')}
                           </Alert>
                         )}
                       </SpaceBetween>
@@ -1087,7 +1089,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
               disabled={!uploadedFiles || selectedPillars.length === 0 || isSupportingDocUploading}
               iconName="gen-ai"
             >
-              Start Review
+              {strings.wellArchitectedAnalyzer.startReview}
             </Button>
             {isAnalyzing && (
               <Button
@@ -1097,7 +1099,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 disabled={isCancellingAnalysis || !progress}
                 loading={isCancellingAnalysis}
               >
-                {isCancellingAnalysis ? 'Cancelling...' : 'Cancel Review'}
+                {isCancellingAnalysis ? strings.wellArchitectedAnalyzer.cancelling : strings.wellArchitectedAnalyzer.cancelReview}
               </Button>
             )}
           </SpaceBetween>
