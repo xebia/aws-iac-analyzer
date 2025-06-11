@@ -129,6 +129,7 @@ export class AnalyzerController {
       templateType: IaCTemplateType;
       lensAliasArn?: string;
       lensName?: string;
+      outputLanguage?: string;
     },
     @Headers('x-amzn-oidc-data') userDataHeader: string,
   ) {
@@ -143,7 +144,8 @@ export class AnalyzerController {
         body.templateType,
         userId,
         lensAlias,
-        body.lensName
+        body.lensName,
+        body.outputLanguage
       );
       return result;
     } catch (error) {
@@ -164,6 +166,7 @@ export class AnalyzerController {
     templateType?: IaCTemplateType;
     lensAliasArn?: string;
     lensName?: string;
+    outputLanguage?: string;
   },
     @Headers('x-amzn-oidc-data') userDataHeader: string,) {
     try {
@@ -177,7 +180,8 @@ export class AnalyzerController {
         body.fileId,
         body.templateType,
         lensAlias,
-        body.lensName
+        body.lensName,
+        body.outputLanguage
       );
       return result;
     } catch (error) {

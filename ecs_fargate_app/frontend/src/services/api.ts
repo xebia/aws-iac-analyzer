@@ -195,6 +195,7 @@ export const analyzerApi = {
     templateType: IaCTemplateType,
     lensAliasArn?: string,
     lensName?: string,
+    outputLanguage?: string,
   ): Promise<{ content: string; isCancelled: boolean; error?: string }> {
     try {
       const response = await api.post('/analyzer/generate-iac', {
@@ -203,6 +204,7 @@ export const analyzerApi = {
         templateType,
         lensAliasArn,
         lensName,
+        outputLanguage,
       });
       return response.data;
     } catch (error) {
@@ -221,6 +223,7 @@ export const analyzerApi = {
     templateType: IaCTemplateType,
     lensAliasArn?: string,
     lensName?: string,
+    outputLanguage?: string,
   ): Promise<{ content: string; error?: string }> {
     try {
       const response = await api.post('/analyzer/get-more-details', {
@@ -228,7 +231,8 @@ export const analyzerApi = {
         fileId,
         templateType,
         lensAliasArn,
-        lensName
+        lensName,
+        outputLanguage,
       });
       return response.data;
     } catch (error) {

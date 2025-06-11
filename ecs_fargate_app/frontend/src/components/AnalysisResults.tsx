@@ -43,6 +43,7 @@ interface AnalysisResultsProps {
   fileName: string;
   lensAliasArn?: string;
   lensName: string;
+  outputLanguage: string;
 }
 
 interface EnhancedBestPractice extends BestPractice {
@@ -56,7 +57,7 @@ interface PreferencesType {
   visibleContent: readonly string[];
 }
 
-export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAnalyzing, onDownloadRecommendations, onGenerateIacDocument, isDownloading, isImplementing, isLoadingDetails, setIsLoadingDetails, uploadedFileType, selectedIaCType, setError, fileId, fileName, lensAliasArn, lensName }) => {
+export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAnalyzing, onDownloadRecommendations, onGenerateIacDocument, isDownloading, isImplementing, isLoadingDetails, setIsLoadingDetails, uploadedFileType, selectedIaCType, setError, fileId, fileName, lensAliasArn, lensName, outputLanguage }) => {
   const [preferences, setPreferences] = useState<PreferencesType>({
     pageSize: 10,
     visibleContent: ['pillar', 'question', 'name', 'status', 'reason', 'recommendations'],
@@ -82,7 +83,8 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ results, isAna
         fileId,
         selectedIaCType,
         lensAliasArn,
-        lensName
+        lensName,
+        outputLanguage
       );
 
       if (result.error) {
