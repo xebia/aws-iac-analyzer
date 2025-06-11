@@ -1,4 +1,6 @@
-export type Language = 'en' | 'ja';
+import { LanguageCode } from './languages';
+
+export type Language = LanguageCode;
 
 export interface I18nStrings {
   common: {
@@ -206,10 +208,9 @@ export interface I18nStrings {
     warningIconAriaLabel: string;
   };
   language: {
-    english: string;
-    japanese: string;
-    switchToEnglish: string;
-    switchToJapanese: string;
+    title: string;
+    select: string;
+    switchTo: string; // Generic "Switch to {language}" format string
   };
   settings: {
     title: string;
@@ -429,10 +430,9 @@ export const i18nStrings: Record<Language, I18nStrings> = {
       warningIconAriaLabel: "Warning",
     },
     language: {
-      english: "English",
-      japanese: "Japanese",
-      switchToEnglish: "Switch to English",
-      switchToJapanese: "Switch to Japanese",
+      title: "Language",
+      select: "Select language",
+      switchTo: "Switch to {language}"
     },
     settings: {
       title: "Settings",
@@ -650,10 +650,9 @@ export const i18nStrings: Record<Language, I18nStrings> = {
       warningIconAriaLabel: "警告",
     },
     language: {
-      english: "English",
-      japanese: "日本語",
-      switchToEnglish: "English に切り替え",
-      switchToJapanese: "日本語に切り替え",
+      title: "言語",
+      select: "言語を選択",
+      switchTo: "{language}に切り替え"
     },
     settings: {
       title: "設定",
@@ -665,4 +664,232 @@ export const i18nStrings: Record<Language, I18nStrings> = {
       workloadIdInput: "既存のWell-Architected Toolワークロード IDを入力するか、空のままにして新しいものを作成してください。",
     },
   },
+  es: {
+    common: {
+      loading: "Cargando",
+      error: "Error",
+      cancel: "Cancelar",
+      apply: "Aplicar",
+      clear: "Limpiar",
+      confirm: "Confirmar",
+      close: "Cerrar",
+      save: "Guardar",
+      delete: "Eliminar",
+      edit: "Editar",
+      add: "Agregar",
+      remove: "Eliminar",
+      upload: "Subir",
+      download: "Descargar",
+      generate: "Generar",
+      analyze: "Analizar",
+      filter: "Filtrar",
+      search: "Buscar",
+      settings: "Configuración",
+      help: "Ayuda",
+      next: "Siguiente",
+      previous: "Anterior",
+      page: "Página",
+      of: "de",
+      match: "coincidencia",
+      matches: "coincidencias",
+      item: "elemento",
+      items: "elementos",
+      selected: "seleccionado",
+      notSelected: "no seleccionado",
+      all: "todo",
+      none: "ninguno",
+      yes: "Sí",
+      no: "No",
+      success: "Éxito",
+      warning: "Advertencia",
+      info: "Info",
+      and: "y",
+      or: "o",
+    },
+    app: {
+      title: "Analizador de Infrastructure as Code (IaC)",
+      subtitle: "Revise su infraestructura como código según las mejores prácticas de AWS Well-Architected Framework",
+      navigation: {
+        sideNavigation: "Navegación lateral",
+        closeSideNavigation: "Cerrar navegación lateral",
+        openSideNavigation: "Abrir navegación lateral",
+        helpPanel: "Panel de ayuda",
+        closeHelpPanel: "Cerrar panel de ayuda",
+        openHelpPanel: "Abrir panel de ayuda",
+        notifications: "Notificaciones",
+      },
+    },
+    analysisResults: {
+      title: "Resultados del análisis",
+      getMoreDetails: "Obtener más detalles",
+      generateIacDocument: "Generar documento IaC",
+      cancelIacGeneration: "Cancelar generación IaC",
+      downloadAnalysis: "Descargar análisis",
+      bestPracticesReviewed: "Prácticas recomendadas revisadas",
+      bestPracticesApplied: "Prácticas recomendadas aplicadas",
+      bestPracticesNotApplied: "Prácticas recomendadas no aplicadas",
+      bestPracticesNotRelevant: "Prácticas recomendadas no relevantes",
+      pillar: "Pilar",
+      question: "Pregunta",
+      bestPractice: "Práctica recomendada",
+      status: "Estado",
+      reason: "Razón",
+      recommendations: "Recomendaciones",
+      applied: "Aplicado",
+      notApplied: "No aplicado",
+      notRelevant: "No relevante",
+      askAiForMoreRecommendations: "Preguntar a IA por más recomendaciones",
+      preferences: "Preferencias",
+      pageSize: "Tamaño de página",
+      columnPreferences: "Preferencias de columnas",
+      noBestPracticesFound: "No se encontraron prácticas recomendadas",
+      noMatches: "Sin coincidencias",
+      clearFilter: "Limpiar filtro",
+    },
+    fileUpload: {
+      title: "Suba sus documentos IaC, diagrama de arquitectura o documentos PDF",
+      singleOrMultipleFiles: "Archivo único o múltiple",
+      completeIacProject: "Proyecto IaC completo",
+      pdfDocuments: "Documentos PDF",
+      singleOrMultipleFilesDescription: "Suba un archivo IaC único o múltiples archivos relacionados. O, suba un diagrama de arquitectura.",
+      completeIacProjectDescription: "Suba un archivo .zip que contenga su proyecto IaC o archivos de repositorio. Se excluirán archivos binarios y multimedia del zip.",
+      pdfDocumentsDescription: "Suba hasta 5 documentos PDF (máx. 4.5MB cada uno) con texto relacionado con documentación arquitectónica y especificaciones técnicas relevantes para su carga de trabajo.",
+      chooseFiles: "Elegir archivos",
+      uploading: "Subiendo...",
+      dropFilesToUpload: "Suelte archivo(s) para subir",
+      dropZipFileToUpload: "Suelte archivo ZIP para subir",
+      dropPdfFilesToUpload: "Suelte archivo(s) PDF para subir (máx. 5)",
+      removeFile: "Eliminar",
+      filesUploadedSuccessfully: "Archivos subidos exitosamente",
+      fileUploadedSuccessfully: "Archivo subido exitosamente",
+      errorUploadingFile: "Error al subir archivo",
+      uploadMode: "Modo de carga",
+    },
+    wellArchitectedAnalyzer: {
+      startReview: "Iniciar revisión",
+      cancelReview: "Cancelar revisión",
+      cancelling: "Cancelando...",
+      optionalSettings: "Configuración opcional",
+      lensSelector: "Selector de lente",
+      outputLanguage: "Idioma de salida",
+      supportingDocumentUpload: "Cargar documento de soporte",
+      wellArchitectedTool: "Herramienta Well-Architected",
+      iacGeneration: "Generación IaC",
+      networkInterrupted: "Conexión de red interrumpida",
+      loadResults: "Cargar resultados",
+      tokenLimitWarning: "Advertencia de límite de tokens",
+      currentWorkItem: "Elemento de trabajo actual",
+      currentLens: "Lente actual",
+      currentLensResultsStatus: "Estado de resultados de lente actual",
+      currentLensSupportingDocument: "Documento de soporte de lente actual",
+      analysisResults: "Resultados de análisis",
+      iacDocument: "Documento IaC",
+      iacDocumentUpdated: "Documento IaC (Actualizado)",
+      analyzing: "Analizando archivo subido según",
+      inProgress: "En progreso",
+      completed: "Completado",
+      failed: "Fallido",
+      notStarted: "No iniciado",
+      partial: "Resultados parciales - Detenido en",
+      supportingDocumentDescription: "Descripción del documento de soporte",
+      downloadOriginalFile: "Descargar archivo original",
+      selectLens: "Seleccionar una lente",
+      iacGenerationOnlyForImages: "La generación de plantillas IaC solo está disponible al analizar diagramas de arquitectura.",
+      analysisProgress: "Progreso del análisis",
+      iacGenerationProgress: "Progreso de generación del documento IaC",
+      networkConnectionInterrupted: "Conexión de red interrumpida",
+      analysisLikelyCompleted: "Su conexión de red se interrumpió mientras el análisis estaba en ejecución. Es probable que el análisis haya terminado en segundo plano.",
+      youCan: "Puede:",
+      clickLoadResults: "Hacer clic en \"Cargar resultados\" para intentar cargar los resultados más recientes",
+      orExpandWorkItem: "O expandir su elemento de trabajo en el panel de navegación lateral y hacer clic en \"Cargar resultados\"",
+      tokenLimitExceeded: "Su proyecto contiene aproximadamente {count} tokens, lo que excede el límite recomendado de 200,000 tokens.",
+      considerBreakingProject: "La invocación del modelo puede fallar o el análisis puede perder contexto debido al gran tamaño del archivo. Considere dividir su proyecto en partes más pequeñas para obtener mejores resultados.",
+      generationCancelled: "Generación cancelada",
+      partialVersionGenerated: "La generación del documento IaC fue cancelada. Se ha generado una versión parcial que se puede ver en la pestaña 'Documento IaC'. Puede usar esta versión parcial o intentar generar nuevamente el documento completo.",
+      partialAnalysisResults: "Resultados de análisis parciales",
+      partialIacGeneration: "Generación parcial de documento IaC",
+      tryGeneratingAgain: "Puede intentar generar el documento completo nuevamente después de esperar unos minutos.",
+      analysisLanguageNotice: "Los resultados del análisis se generarán en español. Los nombres de las prácticas recomendadas se mantendrán en inglés para mantener coherencia con la documentación de AWS.",
+    },
+    lensSelector: {
+      selectLens: "Seleccionar lente",
+      wellArchitectedFramework: "Well-Architected Framework",
+    },
+    pillarSelector: {
+      selectPillars: "Seleccionar pilares",
+      operationalExcellence: "Excelencia operativa",
+      security: "Seguridad",
+      reliability: "Fiabilidad",
+      performanceEfficiency: "Eficiencia del rendimiento",
+      costOptimization: "Optimización de costos",
+      sustainability: "Sostenibilidad",
+    },
+    iacTemplateSelector: {
+      selectTemplate: "Seleccionar tipo de plantilla IaC",
+      cloudFormation: "CloudFormation",
+      terraform: "Terraform",
+    },
+    supportingDocumentUpload: {
+      title: "Cargar documento de soporte",
+      description: "Cargar documentación adicional para proporcionar contexto al análisis",
+    },
+    propertyFilter: {
+      filteringAriaLabel: "Filtrar prácticas recomendadas",
+      filteringPlaceholder: "Filtrar prácticas recomendadas",
+      clearFiltersText: "Limpiar filtros",
+      cancelActionText: "Cancelar",
+      applyActionText: "Aplicar",
+      operationAndText: "y",
+      operationOrText: "o",
+      operatorContainsText: "Contiene",
+      operatorDoesNotContainText: "No contiene",
+      operatorEqualsText: "Igual a",
+      operatorDoesNotEqualText: "No igual a",
+      operatorStartsWithText: "Comienza con",
+      groupValuesLabel: {
+        pillar: "Valores de pilar",
+        question: "Valores de pregunta",
+        bestPractice: "Valores de práctica recomendada",
+        relevance: "Valores de relevancia",
+        status: "Valores de estado",
+      },
+    },
+    pagination: {
+      nextPageLabel: "Página siguiente",
+      previousPageLabel: "Página anterior",
+      pageLabel: (pageNumber: number) => `Página ${pageNumber} de todas las páginas`,
+    },
+    chat: {
+      generatingResponse: "Generando una respuesta...",
+      analyzerAssistant: "Asistente de análisis",
+      you: "Tú",
+      removeFile: (index: number) => `Eliminar archivo ${index + 1}`,
+      showFewerFiles: "Mostrar menos archivos",
+      showMoreFiles: "Mostrar más archivos",
+      errorIconAriaLabel: "Error",
+      warningIconAriaLabel: "Advertencia",
+    },
+    language: {
+      title: "Idioma",
+      select: "Seleccionar idioma",
+      switchTo: "Cambiar a {language}"
+    },
+    settings: {
+      title: "Configuración",
+      language: "Idioma",
+      selectLanguage: "Seleccionar idioma",
+    },
+    descriptions: {
+      lensSelector: "Seleccione qué lente de Well-Architected usar para revisar su infraestructura",
+      workloadIdInput: "Opcionalmente, ingrese un ID de carga de trabajo existente de Well-Architected Tool, o deje en blanco para crear uno nuevo.",
+    }
+  },
+  // When adding a new language, add a new entry here
+  // Example for Spanish:
+  // es: {
+  //   common: {
+  //     // Spanish translations
+  //   },
+  //   // ... other Spanish categories  
+  // }
 };

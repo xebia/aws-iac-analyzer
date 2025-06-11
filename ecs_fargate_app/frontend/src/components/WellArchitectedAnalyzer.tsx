@@ -16,6 +16,8 @@ import { IaCTemplateSelector } from './IaCTemplateSelector';
 import { Chat } from './chat';
 import { LensSelector } from './LensSelector';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode, getDefaultLanguage } from '../i18n/languages';
+import { Language } from '../i18n/strings';
 
 const DEFAULT_PILLARS: WellArchitectedPillar[] = [
   { id: 'operational-excellence', name: 'Operational Excellence', selected: true },
@@ -49,10 +51,15 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   const [supportingDocument, setSupportingDocument] = useState<UploadedFile | null>(null);
   const [supportingDocumentId, setSupportingDocumentId] = useState<string | null>(null);
   const [supportingDocumentDescription, setSupportingDocumentDescription] = useState<string>('');
+  const { language: contextLanguage, setLanguage: setContextLanguage } = useLanguage();
+
+  // Convert context language to SelectProps.Option format  
   const [selectedLanguage, setSelectedLanguage] = useState<SelectProps.Option>(() => {
-    // Load language preference from localStorage or default to English
-    const savedLanguage = localStorage.getItem('preferredLanguage') || 'en';
-    return { value: savedLanguage, label: savedLanguage === 'en' ? 'English' : '日本語' };
+    const langDef = getLanguageByCode(contextLanguage);
+    return {
+      value: contextLanguage,
+      label: langDef?.nativeName || 'English'
+    };
   });
 
   const [isDownloading, setIsDownloading] = useState(false);
@@ -128,6 +135,15 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   const { strings } = useLanguage();
   const isAnalysisComplete = Boolean(analysisResults && analysisResults.length > 0);
 
+  // Synchronize the language when it changes at the context level
+  useEffect(() => {
+    const langDef = getLanguageByCode(contextLanguage);
+    setSelectedLanguage({
+      value: contextLanguage,
+      label: langDef?.nativeName || 'English'
+    });
+  }, [contextLanguage]);
+
   useEffect(() => {
     const cleanup = socketService.onImplementationProgress((progressData: ImplementationProgress) => {
       setImplementationProgress(progressData);
@@ -172,7 +188,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
 
   const handleLoadNetworkInterruptionResults = async () => {
     if (!activeWorkItem) return;
-    
+
     setIsLoadingNetworkResultsButton(true);
     try {
       await handleWorkItemSelect(activeWorkItem, true, activeLensAliasArn);
@@ -545,7 +561,8 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
         analysisResults,
         selectedIaCType,
         activeLensAliasArn,
-        selectedLens?.lensName
+        selectedLens?.lensName,
+        selectedLanguage.value || 'en'
       );
 
       // Refresh side navigation when IaC generation completes (success, failure, or cancelled)
@@ -644,7 +661,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
       if (lensAlias) {
         setActiveLensAlias(lensAlias);
         setActiveLensAliasArn(lensAliasArn);
-      
+
         // Find the lens in workItem.usedLenses to get the lens name
         const lens = workItem.usedLenses?.find(l => l.lensAlias === lensAlias);
         if (lens) {
@@ -673,7 +690,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
           // Use the first entry in workloadIds map for workload info, regardless of which lens is active
           const firstLensAlias = Object.keys(workItem.workloadIds)[0];
           const workloadInfo = workItem.workloadIds[firstLensAlias];
-          
+
           setCurrentWorkloadId(workloadInfo.id);
           setCurrentWorkloadProtected(workloadInfo.protected);
           setCurrentLensWorkloadId(workloadInfo.id);
@@ -944,27 +961,30 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                   id: 'language-selector',
                   label: 'Output Language',
                   content: (
-                    <Container>
-                      <SpaceBetween size="l">
-                        <Select
-                          selectedOption={selectedLanguage}
-                          onChange={({ detail }) => {
-                            setSelectedLanguage(detail.selectedOption);
-                            localStorage.setItem('preferredLanguage', detail.selectedOption.value || 'en');
-                          }}
-                          options={[
-                            { value: 'en', label: 'English' },
-                            { value: 'ja', label: '日本語' }
-                          ]}
-                          ariaLabel="Output language"
-                        />
-                        {selectedLanguage.value !== 'en' && (
-                          <Alert type="info">
-                            {strings.wellArchitectedAnalyzer.analysisLanguageNotice.replace('{language}', selectedLanguage.label || '日本語')}
-                          </Alert>
-                        )}
-                      </SpaceBetween>
-                    </Container>
+                    <SpaceBetween size="l">
+                      <Select
+                        selectedOption={selectedLanguage}
+                        onChange={({ detail }) => {
+                          const langValue = detail.selectedOption.value as string;
+                          // Update local state
+                          setSelectedLanguage(detail.selectedOption);
+                          // Update context language (will propagate to the entire app)
+                          setContextLanguage(langValue as Language);
+                          // Maintain localStorage for persistence
+                          localStorage.setItem('preferredLanguage', langValue || getDefaultLanguage());
+                        }}
+                        options={useLanguage().supportedLanguages.map(lang => ({
+                          value: lang.code, 
+                          label: lang.nativeName
+                        }))}
+                        ariaLabel={strings.language.select}
+                      />
+                      {selectedLanguage.value !== 'en' && (
+                        <Alert type="info">
+                          {strings.wellArchitectedAnalyzer.analysisLanguageNotice.replace('{language}', selectedLanguage.label || '日本語')}
+                        </Alert>
+                      )}
+                    </SpaceBetween>
                   )
                 },
                 {
@@ -1044,9 +1064,9 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 </SpaceBetween>
               }
             >
-              <p>Your network connection was interrupted while the analysis was running. 
-              The analysis has likely completed in the background.</p>
-              
+              <p>Your network connection was interrupted while the analysis was running.
+                The analysis has likely completed in the background.</p>
+
               <p><strong>You can:</strong></p>
               <ul>
                 <li>Click "Load Results" to try loading the most recent results</li>
@@ -1377,6 +1397,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                     fileName={uploadedFiles?.singleFile?.name || uploadedFiles?.zipFile?.name || 'unknown_file'}
                     lensAliasArn={activeLensAliasArn}
                     lensName={activeLensName}
+                    outputLanguage={selectedLanguage.value || 'en'}
                   />
                 </div>
               )

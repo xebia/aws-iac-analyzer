@@ -1,5 +1,15 @@
 import { QuestionGroup } from '../shared/interfaces/analysis.interface';
 import { IaCTemplateType } from '../shared/dto/analysis.dto';
+import { getLanguageName } from './languages';
+
+/**
+ * Converts language code to full language name
+ * @param code Language code (e.g., 'en', 'ja', 'es')
+ * @returns Full language name (e.g., 'English', 'Japanese', 'Spanish')
+ */
+export function getLanguageNameFromCode(code: string): string {
+  return getLanguageName(code);
+}
 
 /**
  * Generates a system prompt for analyzing architecture diagrams
@@ -32,7 +42,7 @@ export function buildImageSystemPrompt(
 
   // Add language instruction if not English
   const languageInstruction = outputLanguage !== 'en' 
-    ? `\n\nIMPORTANT: Please provide the review results in ${outputLanguage}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${outputLanguage}.`
+    ? `\n\nIMPORTANT: Provide the review results in ${getLanguageNameFromCode(outputLanguage)}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
   return `
@@ -152,7 +162,7 @@ export function buildSystemPrompt(
 
   // Add language instruction if not English
   const languageInstruction = outputLanguage !== 'en' 
-    ? `\n\nIMPORTANT: Please provide the review results in ${outputLanguage}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${outputLanguage}.`
+    ? `\n\nIMPORTANT: Provide the review results in ${getLanguageNameFromCode(outputLanguage)}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
   return `
@@ -273,7 +283,7 @@ export function buildProjectSystemPrompt(
 
   // Add language instruction if not English
   const languageInstruction = outputLanguage !== 'en' 
-    ? `\n\nIMPORTANT: Please provide the review results in ${outputLanguage}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${outputLanguage}.`
+    ? `\n\nIMPORTANT: Provide the review results in ${getLanguageNameFromCode(outputLanguage)}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
   return `
@@ -379,7 +389,7 @@ export function buildDetailsSystemPrompt(modelId?: string, lensName?: string, ou
 
   // Add language instruction if not English
   const languageInstruction = outputLanguage !== 'en' 
-    ? `\n8. Please provide your detailed analysis in ${outputLanguage}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${outputLanguage}.`
+    ? `\n8. Provide your detailed analysis in ${getLanguageNameFromCode(outputLanguage)}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
   return `You are an AWS Cloud Solutions Architect who specializes in reviewing solution architectures and Infrastructure As Code (IaC) documents against the ${lensContext}. Your answer should be formatted in Markdown.
@@ -393,7 +403,7 @@ For the best practice provided in the <bp_recommendation_analysis> section:
 2. Include CloudFormation, Terraform or AWS Cloud Development Kit (AWS CDK) document modification examples based on the IaC document or project in the <iac_document_or_project> section. Use the same format as the <iac_document_or_project> content. For example, if the <iac_document_or_project> section contains a CloudFormation in YAML format then provide examples as YAML, if it is in JSON, provide examples in JSON, if it is a Terraform document, use Terraform language, etc. Also, if the section <iac_document_or_project> contains multiple files, make sure to reference which file you are suggesting the modifications for (e.g. adding "File: 'network/subnets.tf'" before the document modifications suggested).
 3. Include risks of not implementing the best practice
 4. Provide specific AWS services and features recommendations
-${outputLengthGuidance}
+${outputLengthGuidance}${languageInstruction}
 
 Structure your response as:
 # {Pillar as in the <bp_recommendation_analysis> section} - {Best Practice Name as in the <bp_recommendation_analysis> section}
@@ -447,7 +457,7 @@ export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType, mo
 
   // Language instruction if not English
   const languageInstruction = outputLanguage !== 'en' 
-    ? `      5. Please provide all comments and explanations in ${outputLanguage}, but keep code, variable names, and technical terms in English.` 
+    ? `      5. Provide all comments and explanations in ${getLanguageNameFromCode(outputLanguage)}, but keep code, variable names, and technical terms in English.` 
     : '';
 
   // Additional instructions
@@ -496,7 +506,7 @@ export function buildImageDetailsSystemPrompt(templateType: IaCTemplateType, mod
 
   // Add language instruction if not English
   const languageInstruction = outputLanguage !== 'en' 
-    ? `\n8. Please provide your detailed analysis in ${outputLanguage}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${outputLanguage}.`
+    ? `\n8. Provide your detailed analysis in ${getLanguageNameFromCode(outputLanguage)}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
   return `You are an AWS Cloud Solutions Architect who specializes in reviewing architecture diagrams against the ${lensContext}. Your answer should be formatted in Markdown.
@@ -510,7 +520,7 @@ export function buildImageDetailsSystemPrompt(templateType: IaCTemplateType, mod
       2. Include ${templateDescription}
       3. Include risks of not implementing the best practice
       4. Provide specific AWS services and features recommendations
-      ${outputLengthGuidance}
+      ${outputLengthGuidance}${languageInstruction}
       
       Structure your response in Markdown format as follows:
       # {Pillar as in the <bp_recommendation_analysis> section} - {Best Practice Name as in the <bp_recommendation_analysis> section}
@@ -559,7 +569,7 @@ export function buildPdfSystemPrompt(
 
   // Add language instruction if not English
   const languageInstruction = outputLanguage !== 'en' 
-    ? `\n\nIMPORTANT: Please provide the review results in ${outputLanguage}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${outputLanguage}.`
+    ? `\n\nIMPORTANT: Provide the review results in ${getLanguageNameFromCode(outputLanguage)}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
   return `
@@ -627,7 +637,7 @@ export function buildPdfDetailsSystemPrompt(lensName?: string, outputLanguage: s
 
   // Add language instruction if not English
   const languageInstruction = outputLanguage !== 'en' 
-    ? `\n8. Please provide your detailed analysis in ${outputLanguage}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${outputLanguage}.`
+    ? `\n8. Provide your detailed analysis in ${getLanguageNameFromCode(outputLanguage)}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
   return `You are an AWS Cloud Solutions Architect who specializes in reviewing solution architectures and documentation against the ${lensContext}. Your answer should be formatted in Markdown.
@@ -641,7 +651,7 @@ For the best practice provided in the <bp_recommendation_analysis> section:
 4. Provide specific AWS services and features recommendations
 5. If you have completed your detailed analysis, add the marker "<end_of_details_generation>" at the very end
 6. If you have more details to provide, end your response with "<details_truncated>"
-7. Your response should be detailed and comprehensive, between 1000-3000 words in length
+7. Your response should be detailed and comprehensive, between 1000-3000 words in length${languageInstruction}
 
 Structure your response as:
 # {Pillar as in the <bp_recommendation_analysis> section} - {Best Practice Name as in the <bp_recommendation_analysis> section}

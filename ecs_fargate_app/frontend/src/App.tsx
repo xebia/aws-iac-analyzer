@@ -12,11 +12,12 @@ import '@cloudscape-design/global-styles/index.css';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { WorkItem } from './types';
 import { ChatProvider } from './components/chat/ChatContext';
+import { isValidLanguage} from './i18n/languages';
 
 function AppContent() {
   const { isToolsOpen, content, setIsToolsOpen } = useHelpPanel();
   const { authState } = useAuth();
-  const { strings, language, setLanguage } = useLanguage();
+  const { strings, language: currentLanguage, setLanguage, supportedLanguages } = useLanguage();
   const defaultContent = helpContent.default;
   const userMenuUtilities = useUserMenuUtilities();
   const [activeFileId, setActiveFileId] = useState<string>();
@@ -93,6 +94,12 @@ function AppContent() {
     sideNavRef.current?.loadWorkItems();
   }, []);
 
+  const languageItems = supportedLanguages.map(lang => ({
+    id: lang.code,
+    text: lang.nativeName,
+    checked: currentLanguage === lang.code
+  }));
+
   return (
     <div>
       <TopNavigation
@@ -113,24 +120,14 @@ function AppContent() {
             items: [
               {
                 id: 'language-section',
-                text: strings.settings.language,
-                items: [
-                  {
-                    id: 'en',
-                    text: strings.language.english,
-                    checked: language === 'en'
-                  },
-                  {
-                    id: 'ja',
-                    text: strings.language.japanese,
-                    checked: language === 'ja'
-                  }
-                ]
+                text: strings.language.title,
+                items: languageItems
               }
             ],
             onItemClick: ({ detail }) => {
-              if (detail.id === 'en' || detail.id === 'ja') {
-                setLanguage(detail.id);
+              const langCode = detail.id;
+              if (isValidLanguage(langCode)) {
+                setLanguage(langCode);
               }
             }
           }

@@ -575,7 +575,7 @@ export class AnalyzerService {
             // Use the provided lens or default to wellarchitected
             const currentLensAlias = lensAlias || 'wellarchitected';
             const currentLensName = lensName || 'Well-Architected Framework';
-            
+
             // Use provided output language or default from service
             const currentOutputLanguage = outputLanguage || this.outputLanguage;
 
@@ -963,7 +963,8 @@ export class AnalyzerService {
         templateType: IaCTemplateType,
         userId?: string,
         lensAlias?: string,
-        lensName?: string
+        lensName?: string,
+        outputLanguage?: string
     ): Promise<{ content: string; isCancelled: boolean; error?: string }> {
         try {
             if (!userId) {
@@ -1037,7 +1038,7 @@ export class AnalyzerService {
                         null,
                         null,
                         currentLensName,
-                        this.outputLanguage
+                        outputLanguage || this.outputLanguage
                     );
 
                     // Handle cancellation and storage updates
@@ -1262,7 +1263,8 @@ export class AnalyzerService {
         fileId: string,
         templateType?: IaCTemplateType,
         lensAlias?: string,
-        lensName?: string
+        lensName?: string,
+        outputLanguage?: string
     ): Promise<{ content: string; error?: string }> {
         const filteredItems = selectedItems.filter(item => !item.applied && item.relevant === true);
         try {
@@ -1350,7 +1352,7 @@ export class AnalyzerService {
                             );
 
                             // Get system prompt for PDFs
-                            const systemPrompt = Prompts.buildPdfDetailsSystemPrompt(lensName);
+                            const systemPrompt = Prompts.buildPdfDetailsSystemPrompt(lensName, outputLanguage || this.outputLanguage);
 
                             // Invoke model with PDFs
                             const bedrockClient = this.awsConfig.createBedrockClient();
@@ -1606,7 +1608,7 @@ export class AnalyzerService {
                                 messages,
                                 system: [
                                     {
-                                        text: Prompts.buildImageDetailsSystemPrompt(templateType, modelId, lensName, this.outputLanguage)
+                                        text: Prompts.buildImageDetailsSystemPrompt(templateType, modelId, lensName, outputLanguage || this.outputLanguage)
                                     }
                                 ]
                             });
@@ -1682,7 +1684,7 @@ export class AnalyzerService {
                                 messages,
                                 system: [
                                     {
-                                        text: Prompts.buildDetailsSystemPrompt(modelId, lensName, this.outputLanguage)
+                                        text: Prompts.buildDetailsSystemPrompt(modelId, lensName, outputLanguage || this.outputLanguage)
                                     }
                                 ]
                             });
