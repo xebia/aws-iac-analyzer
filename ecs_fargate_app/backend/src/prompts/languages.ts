@@ -31,7 +31,7 @@ export const SUPPORTED_LANGUAGES: Language[] = [
     nativeName: 'Español'
   },
   {
-    code: 'pt',
+    code: 'pt_BR',
     name: 'Brazilian Portuguese',
     nativeName: 'Português Brasileiro'
   },

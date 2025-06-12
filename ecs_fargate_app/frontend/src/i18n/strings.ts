@@ -885,7 +885,7 @@ export const i18nStrings: Record<Language, I18nStrings> = {
       workloadIdInput: "Opcionalmente, ingrese un ID de carga de trabajo existente de Well-Architected Tool, o deje en blanco para crear uno nuevo.",
     }
   },
-    pt: {
+    pt_BR: {
     common: {
       loading: "Carregando",
       error: "Erro",
