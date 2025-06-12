@@ -471,7 +471,7 @@ export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType, mo
       For your reference, after you complete providing all parts of the template, all template parts/sections you provided will be concatenated into a single ${templateType} file.`;
 
   // Combine all instructions
-  return baseInstructions + outputLengthInstructions + additionalInstructions;
+  return baseInstructions + outputLengthInstructions + languageInstruction + additionalInstructions;
 }
 
 /**

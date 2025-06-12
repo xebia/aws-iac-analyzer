@@ -52,6 +52,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   const [supportingDocumentId, setSupportingDocumentId] = useState<string | null>(null);
   const [supportingDocumentDescription, setSupportingDocumentDescription] = useState<string>('');
   const { language: contextLanguage, setLanguage: setContextLanguage } = useLanguage();
+  const { strings } = useLanguage();
 
   // Convert context language to SelectProps.Option format  
   const [selectedLanguage, setSelectedLanguage] = useState<SelectProps.Option>(() => {
@@ -71,7 +72,6 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   );
   const [isImageFile, setIsImageFile] = useState(false);
   const [showCancellationAlert, setShowCancellationAlert] = useState(false);
-  const [documentViewTabTitle, setDocumentViewTabTitle] = useState('IaC Document');
   const [showGenerationErrorWarning, setShowGenerationErrorWarning] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [activeWorkItem, setActiveWorkItem] = useState<WorkItem | null>(null);
@@ -132,7 +132,6 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
   } = useAnalyzer();
 
   // Check if analysis is complete and results are available
-  const { strings } = useLanguage();
   const isAnalysisComplete = Boolean(analysisResults && analysisResults.length > 0);
 
   // Synchronize the language when it changes at the context level
@@ -580,7 +579,6 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
           name: uploadedFiles.singleFile.name,
           templateType: selectedIaCType
         });
-        setDocumentViewTabTitle('IaC Document (Updated)');
 
         if (result.isCancelled) {
           setShowCancellationAlert(true);
@@ -936,7 +934,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
           />
 
           <ExpandableSection
-            headerText="Optional Settings"
+            headerText={strings.wellArchitectedAnalyzer.optionalSettings}
             variant="inline"
           >
             <Tabs
@@ -946,7 +944,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
               tabs={[
                 {
                   id: 'lens-selector',
-                  label: 'Lens Selector',
+                  label: `${strings.wellArchitectedAnalyzer.lensSelector}`,
                   content: (
                     <SpaceBetween direction="vertical" size="l">
                       <LensSelector
@@ -959,7 +957,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 },
                 {
                   id: 'language-selector',
-                  label: 'Output Language',
+                  label: `${strings.wellArchitectedAnalyzer.outputLanguage}`,
                   content: (
                     <SpaceBetween size="l">
                       <Select
@@ -989,7 +987,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 },
                 {
                   id: 'supporting-document',
-                  label: 'Supporting Document Upload',
+                  label: `${strings.wellArchitectedAnalyzer.supportingDocumentUpload}`,
                   content: (
                     <SpaceBetween direction="vertical" size="l">
                       <SupportingDocumentUpload
@@ -1004,7 +1002,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 },
                 {
                   id: 'well-architected-tool',
-                  label: 'Well-Architected Tool',
+                  label: `${strings.wellArchitectedAnalyzer.wellArchitectedTool}`,
                   content: (
                     <SpaceBetween direction="vertical" size="l">
                       <WorkloadIdInput
@@ -1018,7 +1016,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 },
                 {
                   id: 'iac-generation',
-                  label: 'IaC Generation',
+                  label: `${strings.wellArchitectedAnalyzer.iacGeneration}`,
                   content: (
                     <SpaceBetween direction="vertical" size="l">
                       <IaCTemplateSelector
@@ -1233,7 +1231,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             columns={4}
             items={[
               {
-                label: "Current Work Item",
+                label: `${strings.wellArchitectedAnalyzer.currentWorkItem}`,
                 value: (
                   <SpaceBetween direction="horizontal" size="xxxs" alignItems="center">
                     {currentWorkItemName}
@@ -1250,7 +1248,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 )
               },
               {
-                label: "Current Lens",
+                label: `${strings.wellArchitectedAnalyzer.currentLens}`,
                 value: (
                   <SpaceBetween direction="horizontal" size="xs" alignItems="center">
                     {activeWorkItem && activeWorkItem.usedLenses && activeWorkItem.usedLenses.length > 0 ? (
@@ -1293,7 +1291,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 )
               },
               {
-                label: "Current Lens Results Status",
+                label: `${strings.wellArchitectedAnalyzer.currentLensResultsStatus}`,
                 value: (
                   <SpaceBetween direction="horizontal" size="xs" alignItems="center">
                     {activeWorkItem && activeLensAlias && activeWorkItem.analysisProgress &&
@@ -1301,19 +1299,19 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                       <>
                         {activeWorkItem.analysisStatus && activeWorkItem.analysisStatus[activeLensAlias] === 'PARTIAL' ? (
                           <Badge color="blue">
-                            Partial results - Stopped at {activeWorkItem.analysisProgress[activeLensAlias]}%
+                            {strings.wellArchitectedAnalyzer.partial} {activeWorkItem.analysisProgress[activeLensAlias]}%
                           </Badge>
                         ) : activeWorkItem.analysisStatus && activeWorkItem.analysisStatus[activeLensAlias] === 'IN_PROGRESS' ? (
                           <Badge color="blue">
-                            In progress - {activeWorkItem.analysisProgress[activeLensAlias]}%
+                            {strings.wellArchitectedAnalyzer.inProgress} - {activeWorkItem.analysisProgress[activeLensAlias]}%
                           </Badge>
                         ) : activeWorkItem.analysisStatus && activeWorkItem.analysisStatus[activeLensAlias] === 'COMPLETED' ? (
                           <Badge color="green">
-                            Completed
+                            {strings.wellArchitectedAnalyzer.completed}
                           </Badge>
                         ) : activeWorkItem.analysisStatus && activeWorkItem.analysisStatus[activeLensAlias] === 'FAILED' ? (
                           <Badge color="red">
-                            Failed
+                            {strings.wellArchitectedAnalyzer.failed}
                           </Badge>
                         ) : <Badge color="grey">Not Started</Badge>}
                       </>
@@ -1333,7 +1331,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
                 )
               },
               {
-                label: "Current Lens Supporting Document",
+                label: `${strings.wellArchitectedAnalyzer.currentLensSupportingDocument}`,
                 value: supportingDocument && supportingDocumentId ? (
                   <SpaceBetween direction="horizontal" size="xxxs" alignItems="center">
                     {supportingDocument.name}
@@ -1371,13 +1369,11 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
           activeTabId={activeTabId}
           onChange={({ detail }) => {
             setActiveTabId(detail.activeTabId);
-            if (detail.activeTabId == 'diff')
-              setDocumentViewTabTitle('IaC Document')
           }}
           tabs={[
             {
               id: 'analysis',
-              label: 'Analysis Results',
+              label: `${strings.wellArchitectedAnalyzer.analysisResults}`,
               content: (
                 <div key="analysis-tab-content">
                   <AnalysisResults
@@ -1404,7 +1400,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             },
             {
               id: 'wat',
-              label: 'Well-Architected Tool',
+              label: `${strings.wellArchitectedAnalyzer.wellArchitectedTool}`,
               disabled: isLoadingDetails || isImplementing,
               content: (
                 <div key="wat-content">
@@ -1429,7 +1425,7 @@ export const WellArchitectedAnalyzer: React.FC<Props> = ({ onWorkItemsRefreshNee
             },
             {
               id: 'diff',
-              label: documentViewTabTitle,
+              label: strings.wellArchitectedAnalyzer.iacDocument,
               disabled: isLoadingDetails || isImplementing || !updatedDocument,
               content: (
                 <div key="diff-content">
