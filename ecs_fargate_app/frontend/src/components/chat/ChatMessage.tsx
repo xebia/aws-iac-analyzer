@@ -7,6 +7,7 @@ import { ChatBubbleAvatar, Actions } from './utils/common-components';
 import { Box } from '@cloudscape-design/components';
 import { AUTHORS, fileTokenGroupI18nStrings } from './utils/config';
 import ReactMarkdown from 'react-markdown';
+import { useLanguage } from '../../contexts/LanguageContext';
 import './styles.css';
 
 interface ChatMessageProps {
@@ -17,6 +18,7 @@ interface ChatMessageProps {
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, hideAvatar = false }) => {
     const { authorId, content, timestamp, files, isLoading } = message;
     const author = AUTHORS[authorId];
+    const { strings } = useLanguage();
 
     return (
         <ChatBubble
@@ -30,7 +32,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, hideAvatar = 
             <SpaceBetween size="xs">
                 <div>
                     {isLoading ? (
-                        <Box color="text-status-inactive">Generating a response...</Box>
+                        <Box color="text-status-inactive">{strings.chat.generatingResponse}</Box>
                     ) : authorId === 'gen-ai' ? (
                         <div className="markdown-content">
                             <ReactMarkdown>{content}</ReactMarkdown>
