@@ -206,6 +206,8 @@ export interface I18nStrings {
     showMoreFiles: string;
     errorIconAriaLabel: string;
     warningIconAriaLabel: string;
+    loadingConversation: string;
+    askAboutYourResults: string;
   };
   language: {
     title: string;
@@ -221,6 +223,30 @@ export interface I18nStrings {
     lensSelector: string;
     workloadIdInput: string;
   };
+  leftPanel: {
+    myWorkItems: string;
+    lenses: string;
+    loadResults: string;
+    downloadOriginalFile: string;
+    chatHistory: string;
+    deleteWorkItem: string;
+    reloadWorkItems: string;
+    deleteWorkItemModal: {
+      title: string;
+      message: string;
+      warning: string;
+      cancel: string;
+      delete: string;
+      status: string;
+    },
+    deleteChatHistoryModal: {
+      title: string;
+      message: string;
+      warning: string;
+      cancel: string;
+      delete: string;
+    }
+  }
 }
 
 export const i18nStrings: Record<Language, I18nStrings> = {
@@ -429,6 +455,8 @@ export const i18nStrings: Record<Language, I18nStrings> = {
       showMoreFiles: "Show more files",
       errorIconAriaLabel: "Error",
       warningIconAriaLabel: "Warning",
+      loadingConversation: "Loading conversation...",
+      askAboutYourResults: "Ask about your results or best practices...",
     },
     language: {
       title: "Language",
@@ -443,6 +471,30 @@ export const i18nStrings: Record<Language, I18nStrings> = {
     descriptions: {
       lensSelector: "Select which Well-Architected lens to use for reviewing your infrastructure",
       workloadIdInput: "Optionally enter an existing Well-Architected Tool workload ID, or leave empty to create a new one.",
+    },
+    leftPanel: {
+      myWorkItems: "My Work Items",
+      lenses: "Lenses:",
+      loadResults: "Load results:",
+      downloadOriginalFile: "Download original file:",
+      chatHistory: "Chat history:",
+      deleteWorkItem: "Delete work item:",
+      reloadWorkItems: "Reload Work Items",
+      deleteWorkItemModal: {
+        title: "Delete Work Item",
+        message: "Are you sure you want to delete the work item? ",
+        warning: "This action cannot be undone.",
+        cancel: "Cancel",
+        delete: "Delete",
+        status: "Analysis Status:"
+      },
+      deleteChatHistoryModal: {
+        title: "Delete Chat History",
+        message: "Are you sure you want to delete the chat history? ",
+        warning: "This action cannot be undone.",
+        cancel: "Cancel", 
+        delete: "Delete"
+      }
     },
   },
   ja: {
@@ -649,6 +701,8 @@ export const i18nStrings: Record<Language, I18nStrings> = {
       showMoreFiles: "ファイルをもっと表示",
       errorIconAriaLabel: "エラー",
       warningIconAriaLabel: "警告",
+      loadingConversation: "会話を読み込み中...",
+      askAboutYourResults: "結果やベストプラクティスについて質問する...",
     },
     language: {
       title: "言語",
@@ -663,6 +717,30 @@ export const i18nStrings: Record<Language, I18nStrings> = {
     descriptions: {
       lensSelector: "インフラストラクチャのレビューに使用するWell-Architectedレンズを選択してください",
       workloadIdInput: "既存のWell-Architected Toolワークロード IDを入力するか、空のままにして新しいものを作成してください。",
+    },
+    leftPanel: {
+      myWorkItems: "マイワークアイテム",
+      lenses: "レンズ：",
+      loadResults: "結果を読み込み：",
+      downloadOriginalFile: "元のファイルをダウンロード：",
+      chatHistory: "チャット履歴：",
+      deleteWorkItem: "ワークアイテムを削除：",
+      reloadWorkItems: "ワークアイテムを再読み込み",
+      deleteWorkItemModal: {
+        title: "ワークアイテムを削除",
+        message: "ワークアイテムを削除してもよろしいですか？",
+        warning: "この操作は元に戻せません。",
+        cancel: "キャンセル",
+        delete: "削除",
+        status: "分析ステータス："
+      },
+      deleteChatHistoryModal: {
+        title: "チャット履歴を削除",
+        message: "チャット履歴を削除してもよろしいですか？",
+        warning: "この操作は元に戻せません。",
+        cancel: "キャンセル",
+        delete: "削除"
+      },
     },
   },
   es: {
@@ -869,6 +947,8 @@ export const i18nStrings: Record<Language, I18nStrings> = {
       showMoreFiles: "Mostrar más archivos",
       errorIconAriaLabel: "Error",
       warningIconAriaLabel: "Advertencia",
+      loadingConversation: "Cargando conversación...",
+      askAboutYourResults: "Preguntar sobre sus resultados o mejores prácticas...",
     },
     language: {
       title: "Idioma",
@@ -883,7 +963,31 @@ export const i18nStrings: Record<Language, I18nStrings> = {
     descriptions: {
       lensSelector: "Seleccione qué lente de Well-Architected usar para revisar su infraestructura",
       workloadIdInput: "Opcionalmente, ingrese un ID de carga de trabajo existente de Well-Architected Tool, o deje en blanco para crear uno nuevo.",
-    }
+    },
+    leftPanel: {
+      myWorkItems: "Mis Elementos de Trabajo",
+      lenses: "Lentes:",
+      loadResults: "Cargar resultados:",
+      downloadOriginalFile: "Descargar archivo original:",
+      chatHistory: "Historial de chat:",
+      deleteWorkItem: "Eliminar elemento de trabajo:",
+      reloadWorkItems: "Recargar Elementos de Trabajo",
+      deleteWorkItemModal: {
+        title: "Eliminar elemento de trabajo",
+        message: "¿Está seguro de que desea eliminar el elemento de trabajo?",
+        warning: "Esta acción no se puede deshacer.",
+        cancel: "Cancelar",
+        delete: "Eliminar",
+        status: "Estado de Análisis:"
+      },
+      deleteChatHistoryModal: {
+        title: "Eliminar historial de chat",
+        message: "¿Está seguro de que desea eliminar el historial de chat?",
+        warning: "Esta acción no se puede deshacer.",
+        cancel: "Cancelar",
+        delete: "Eliminar"
+      },
+    },
   },
     pt_BR: {
     common: {
@@ -1089,6 +1193,8 @@ export const i18nStrings: Record<Language, I18nStrings> = {
       showMoreFiles: "Mostrar mais arquivos",
       errorIconAriaLabel: "Erro",
       warningIconAriaLabel: "Aviso",
+      loadingConversation: "Carregando conversa...",
+      askAboutYourResults: "Pergunte sobre seus resultados ou melhores práticas...",
     },
     language: {
       title: "Idioma",
@@ -1103,6 +1209,30 @@ export const i18nStrings: Record<Language, I18nStrings> = {
     descriptions: {
       lensSelector: "Selecione qual perspectiva Well-Architected usar para revisar sua infraestrutura",
       workloadIdInput: "Opcionalmente, insira um ID de carga de trabalho existente da  Well-Architected Tool, ou deixe em branco para criar um novo.",
+    },
+    leftPanel: {
+      myWorkItems: "Meus Itens de Trabalho",
+      lenses: "Lentes:",
+      loadResults: "Carregar resultados:",
+      downloadOriginalFile: "Baixar arquivo original:",
+      chatHistory: "Histórico de chat:",
+      deleteWorkItem: "Excluir item de trabalho:",
+      reloadWorkItems: "Recarregar Itens de Trabalho",
+      deleteWorkItemModal: {
+        title: "Excluir item de trabalho",
+        message: "Tem certeza de que deseja excluir o item de trabalho?",
+        warning: "Esta ação não pode ser desfeita.",
+        cancel: "Cancelar",
+        delete: "Excluir",
+        status: "Status da Análise:"
+      },
+      deleteChatHistoryModal: {
+        title: "Excluir histórico de chat",
+        message: "Tem certeza de que deseja excluir o histórico de chat?",
+        warning: "Esta ação não pode ser desfeita.",
+        cancel: "Cancelar",
+        delete: "Excluir"
+      }
     },
   },
   // When adding a new language, add a new entry here

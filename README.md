@@ -18,7 +18,7 @@ Additionally, an **interactive Analyzer Assistant chatbot** enables users to ask
 ---
 - **NEW** ** Language Localization Support:
   - Select your preferred language from the Output Language in Optional Settings menu 
-  - Currently supports English, Japanese and Spanish
+  - Currently supports English, Japanese, Brazilian Portuguese and Spanish
   - Language selection affects analysis results, recommendations, and detailed explanations
   - Consistent localization across all file types (CloudFormation, Terraform, CDK, PDF documents, and architecture diagrams)
   - Interested in adding a new language? Check our [localization guide](/localization/README.md) for detailed instructions
