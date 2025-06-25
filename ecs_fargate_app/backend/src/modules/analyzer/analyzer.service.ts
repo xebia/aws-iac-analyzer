@@ -907,6 +907,12 @@ export class AnalyzerService {
             const completeAnalysisProgressMap = { ...(workItem.analysisProgress || {}) };
             completeAnalysisProgressMap[currentLensAlias] = 100;
 
+            const completeAnalysisErrorMap = { ...(workItem.analysisError || {}) };
+            completeAnalysisErrorMap[currentLensAlias] = ''; // Set clear error message on successful completion
+
+            const completeAnalysisPartialResultsMap = { ...(workItem.analysisPartialResults || {}) };
+            completeAnalysisPartialResultsMap[currentLensAlias] = false;
+
             // Store final results for this lens
             await this.storageService.storeAnalysisResults(
                 userId,
@@ -918,6 +924,8 @@ export class AnalyzerService {
             await this.storageService.updateWorkItem(userId, fileId, {
                 analysisStatus: completeAnalysisStatusMap,
                 analysisProgress: completeAnalysisProgressMap,
+                analysisError: completeAnalysisErrorMap,
+                analysisPartialResults: completeAnalysisPartialResultsMap,
                 lastModified: new Date().toISOString(),
             });
 
@@ -1197,9 +1205,17 @@ export class AnalyzerService {
             finalIacGenerationStatusMap[currentLensAlias] = 'COMPLETED';
             finalIacGenerationProgressMap[currentLensAlias] = 100;
 
+            const finalIacGenerationErrorMap = { ...(workItem.iacGenerationError || {}) };
+            finalIacGenerationErrorMap[currentLensAlias] = ''; // Set clear error message on successful completion
+
+            const finalIacPartialResultsMap = { ...(workItem.iacPartialResults || {}) };
+            finalIacPartialResultsMap[currentLensAlias] = false;
+
             await this.storageService.updateWorkItem(userId, fileId, {
                 iacGenerationStatus: finalIacGenerationStatusMap,
                 iacGenerationProgress: finalIacGenerationProgressMap,
+                iacGenerationError: finalIacGenerationErrorMap,
+                iacPartialResults: finalIacPartialResultsMap,
                 lastModified: new Date().toISOString(),
             });
 
