@@ -222,6 +222,9 @@ export interface I18nStrings {
   descriptions: {
     lensSelector: string;
     workloadIdInput: string;
+    workloadIdInputDefaultLabel: string;
+    workloadIdInputDefaultDescription: string;
+    workloadIdInputNoWorkloadFound: string;
   };
   leftPanel: {
     myWorkItems: string;
@@ -471,6 +474,9 @@ export const i18nStrings: Record<Language, I18nStrings> = {
     descriptions: {
       lensSelector: "Select which Well-Architected lens to use for reviewing your infrastructure",
       workloadIdInput: "Optionally enter an existing Well-Architected Tool workload ID, or leave empty to create a new one.",
+      workloadIdInputDefaultLabel: "Select a workload ID (optional)",
+      workloadIdInputDefaultDescription: "Leave empty to create a new workload",
+      workloadIdInputNoWorkloadFound: "No workloads found",
     },
     leftPanel: {
       myWorkItems: "My Work Items",
@@ -717,6 +723,9 @@ export const i18nStrings: Record<Language, I18nStrings> = {
     descriptions: {
       lensSelector: "インフラストラクチャのレビューに使用するWell-Architectedレンズを選択してください",
       workloadIdInput: "既存のWell-Architected Toolワークロード IDを入力するか、空のままにして新しいものを作成してください。",
+      workloadIdInputDefaultLabel: "ワークロードIDを選択（任意）",
+      workloadIdInputDefaultDescription: "空白のままにして新しいワークロードを作成",
+      workloadIdInputNoWorkloadFound: "ワークロードが見つかりません",
     },
     leftPanel: {
       myWorkItems: "マイワークアイテム",
@@ -963,6 +972,9 @@ export const i18nStrings: Record<Language, I18nStrings> = {
     descriptions: {
       lensSelector: "Seleccione qué lente de Well-Architected usar para revisar su infraestructura",
       workloadIdInput: "Opcionalmente, ingrese un ID de carga de trabajo existente de Well-Architected Tool, o deje en blanco para crear uno nuevo.",
+      workloadIdInputDefaultLabel: "Seleccione un ID de carga de trabajo (opcional)",
+      workloadIdInputDefaultDescription: "Deje vacío para crear una nueva carga de trabajo",
+      workloadIdInputNoWorkloadFound: "No se encontraron cargas de trabajo",
     },
     leftPanel: {
       myWorkItems: "Mis Elementos de Trabajo",
@@ -1209,6 +1221,9 @@ export const i18nStrings: Record<Language, I18nStrings> = {
     descriptions: {
       lensSelector: "Selecione qual perspectiva Well-Architected usar para revisar sua infraestrutura",
       workloadIdInput: "Opcionalmente, insira um ID de carga de trabalho existente da  Well-Architected Tool, ou deixe em branco para criar um novo.",
+      workloadIdInputDefaultLabel: "Selecione um ID de workload (opcional)",
+      workloadIdInputDefaultDescription: "Deixe em branco para criar um novo workload",
+      workloadIdInputNoWorkloadFound: "Nenhum workload encontrado",
     },
     leftPanel: {
       myWorkItems: "Meus Itens de Trabalho",
