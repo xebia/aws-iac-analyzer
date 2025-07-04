@@ -272,7 +272,11 @@ export class AnalyzerService {
                             document: {
                                 format: "pdf",
                                 name: this.normalizeFileName(pdfFile.filename),
-                                source: { bytes: pdfFile.buffer }
+                                source: { bytes: pdfFile.buffer },
+                                // Adding citations property to enable enhanced PDF visual understanding
+                                citations: {
+                                    enabled: true
+                                }
                             }
                         });
                     }
@@ -1396,6 +1400,10 @@ export class AnalyzerService {
                                         name: this.normalizeFileName(pdfFile.filename),
                                         source: {
                                             bytes: pdfFile.buffer
+                                        },
+                                        // Adding citations property to enable enhanced PDF visual understanding
+                                        citations: {
+                                            enabled: true
                                         }
                                     }
                                 });
@@ -1418,7 +1426,11 @@ export class AnalyzerService {
                                         document: {
                                             format: "pdf",
                                             name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
-                                            source: { bytes: Buffer.from(supportingDocContent, 'base64') }
+                                            source: { bytes: Buffer.from(supportingDocContent, 'base64') },
+                                            // Adding citations property to enable enhanced PDF visual understanding
+                                            citations: {
+                                                enabled: true
+                                            }
                                         }
                                     });
                                 }
@@ -1606,6 +1618,10 @@ export class AnalyzerService {
                                             name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
                                             source: {
                                                 bytes: Buffer.from(supportingDocContent, 'base64')
+                                            },
+                                            // Adding citations property to enable enhanced PDF visual understanding
+                                            citations: {
+                                                enabled: true
                                             }
                                         }
                                     });
@@ -1682,6 +1698,10 @@ export class AnalyzerService {
                                             name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
                                             source: {
                                                 bytes: Buffer.from(supportingDocContent, 'base64')
+                                            },
+                                            // Adding citations property to enable enhanced PDF visual understanding
+                                            citations: {
+                                                enabled: true
                                             }
                                         }
                                     });
@@ -1992,6 +2012,16 @@ export class AnalyzerService {
             jsonString = jsonString.substring(firstCurlyBrace, lastCurlyBrace + 1);
         }
 
+        // Handle cite tags
+        // Replace <cite index="..."> with a blank space
+        jsonString = jsonString.replace(/<cite\s+index="[^"]*">/g, " ");
+        
+        // Replace </cite>. with just . (strip out </cite> when followed by a period)
+        jsonString = jsonString.replace(/<\/cite>\./g, ".");
+        
+        // Replace other </cite> instances with ". " (period followed by a space)
+        jsonString = jsonString.replace(/<\/cite>/g, ". ");
+
         // Remove newlines and extra spaces
         jsonString = jsonString.replace(/\s+/g, " ");
 
@@ -2089,6 +2119,10 @@ export class AnalyzerService {
                             name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
                             source: {
                                 bytes: Buffer.from(supportingDocContent, 'base64')
+                            },
+                            // Adding citations property to enable enhanced PDF visual understanding
+                            citations: {
+                                enabled: true
                             }
                         }
                     });
@@ -2173,6 +2207,10 @@ export class AnalyzerService {
                         name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
                         source: {
                             bytes: Buffer.from(supportingDocContent, 'base64')
+                        },
+                        // Adding citations property to enable enhanced PDF visual understanding
+                        citations: {
+                            enabled: true
                         }
                     }
                 });
@@ -2282,6 +2320,10 @@ export class AnalyzerService {
                         name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
                         source: {
                             bytes: Buffer.from(supportingDocContent, 'base64')
+                        },
+                        // Adding citations property to enable enhanced PDF visual understanding
+                        citations: {
+                            enabled: true
                         }
                     }
                 });
@@ -2435,6 +2477,10 @@ export class AnalyzerService {
                         name: this.normalizeFileName(pdfFile.filename),
                         source: {
                             bytes: pdfFile.buffer
+                        },
+                        // Adding citations property to enable enhanced PDF visual understanding
+                        citations: {
+                            enabled: true
                         }
                     }
                 });
@@ -2466,6 +2512,10 @@ export class AnalyzerService {
                             name: this.normalizeFileName(supportingDocName || "supporting-document.pdf"),
                             source: {
                                 bytes: Buffer.from(supportingDocContent, 'base64')
+                            },
+                            // Adding citations property to enable enhanced PDF visual understanding
+                            citations: {
+                                enabled: true
                             }
                         }
                     });

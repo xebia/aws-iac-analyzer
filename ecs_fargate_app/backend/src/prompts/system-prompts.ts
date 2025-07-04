@@ -89,7 +89,7 @@ export function buildImageSystemPrompt(
      - It's implemented at a higher architectural layer (account/organizational level)
      - It's managed outside the specific workload architecture diagram
      - It would affect or apply to the resources defined in the architecture diagram</step>
-  <step>5. In your reasoning fields, explicitly cite which source informed your assessment using "[From Architecture Diagram]" or "[From Supporting Doc]" prefixes</step>
+  <step>5. In your reasoning fields, explicitly cite which source informed your assessment using "[From Architecture Diagram]" or "[From Supporting Doc]" prefixes. Do not use any "<cite index="DOC:LINE">" tag for citations, only use the mentioned "[From Architecture Diagram]" or "[From Supporting Doc]" prefixes.</step>
   </document_processing>
 
   <note_on_relevance>
@@ -226,7 +226,7 @@ export function buildSystemPrompt(
      - It's implemented at a higher architectural layer (account/organizational level)
      - It's managed outside the specific workload template
      - It would affect or apply to the resources defined in the template</step>
-  <step>5. In your reasoning fields, explicitly cite which source informed your assessment using "[From Template]" or "[From Supporting Doc]" prefixes</step>
+  <step>5. In your reasoning fields, explicitly cite which source informed your assessment using "[From Template]" or "[From Supporting Doc]" prefixes. Do not use any "<cite index="DOC:LINE">" tag for citations, only use the mentioned "[From Template]" or "[From Supporting Doc]" prefixes.</step>
   </document_processing>
 
   <note_on_relevance>
@@ -365,7 +365,7 @@ export function buildProjectSystemPrompt(
      - It's implemented at a higher architectural layer (account/organizational level)
      - It's managed outside the specific workload project
      - It would affect or apply to the resources defined in the project</step>
-  <step>5. In your reasoning fields, explicitly cite which source informed your assessment using "[From Project]" or "[From Supporting Doc]" prefixes</step>
+  <step>5. In your reasoning fields, explicitly cite which source informed your assessment using "[From Project]" or "[From Supporting Doc]" prefixes. Do not use any "<cite index="DOC:LINE">" tag for citations, only use the mentioned "[From Project]" or "[From Supporting Doc]" prefixes.</step>
   </document_processing>
 
   <note_on_relevance>
@@ -707,7 +707,7 @@ export function buildPdfSystemPrompt(
      - It's implemented at a higher architectural layer (account/organizational level)
      - It's managed outside the specific workload PDF architecture documentation file(s)
      - It would affect or apply to the resources defined in the PDF architecture documentation file(s)</step>
-  <step>5. In your reasoning fields, explicitly cite which source informed your assessment using "[From PDF]" or "[From Supporting Doc]" prefixes</step>
+  <step>5. In your reasoning fields, explicitly cite which source informed your assessment using "[From PDF]" or "[From Supporting Doc]" prefixes. Do not use any "<cite index="DOC:LINE">" tag for citations, only use the mentioned "[From PDF]" or "[From Supporting Doc]" prefixes.</step>
   </document_processing>
   
   <note_on_relevance>
