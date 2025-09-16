@@ -39,6 +39,11 @@ export const SUPPORTED_LANGUAGES: LanguageDefinition[] = [
     code: 'pt_BR',
     label: 'Brazilian Portuguese',
     nativeName: 'Português Brasileiro'
+  },
+  {
+    code: 'fr',
+    label: 'French',
+    nativeName: 'Français'
   }
   // Add more languages here as needed
   // Example:
