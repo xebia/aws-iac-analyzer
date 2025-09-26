@@ -11,7 +11,7 @@ async function bootstrap() {
   app.use(bodyParser.urlencoded({limit: '100mb', extended: true}));
   
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+    origin: process.env.FRONTEND_URL || 'http://localhost:8080' || 'http://localhost:3001' || 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
