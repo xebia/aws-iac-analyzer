@@ -398,6 +398,8 @@ class WAGenAIStack(Stack):
         KB_ID = kb.knowledge_base_id
 
         # Create S3 bucket and DynamoDB table for storage layer
+        # This will be set after the frontend service is created
+
         # Create S3 bucket for storing analysis results
         analysis_storage_bucket = s3.Bucket(
             self,
@@ -405,13 +407,8 @@ class WAGenAIStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
             enforce_ssl=True,
-            cors=[
-                s3.CorsRule(
-                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT],
-                    allowed_origins=["*"],
-                    allowed_headers=["*"],
-                )
-            ],
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
         )
 
         # Create DynamoDB table for metadata
@@ -426,7 +423,9 @@ class WAGenAIStack(Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,
-            point_in_time_recovery=True,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
         )
 
         # Create DynamoDB table for lens metadata
@@ -438,7 +437,9 @@ class WAGenAIStack(Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,
-            point_in_time_recovery=True,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
         )
 
         # Create S3 bucket where well architected reference docs are stored
@@ -448,6 +449,8 @@ class WAGenAIStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
             enforce_ssl=True,
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
         )
 
         # Uploading WAFR docs to the corresponding S3 bucket [wafrReferenceDocsBucket]
@@ -780,7 +783,12 @@ class WAGenAIStack(Stack):
         public_subnets = vpc.select_subnets(subnet_type=ec2.SubnetType.PUBLIC)
 
         # Create ECS Cluster
-        ecs_cluster = ecs.Cluster(self, "AppCluster", vpc=vpc, container_insights=True)
+        ecs_cluster = ecs.Cluster(
+            self,
+            "AppCluster",
+            vpc=vpc,
+            container_insights_v2=ecs.ContainerInsights.ENABLED,
+        )
 
         # Add ECS Service Discovery namespace
         namespace = servicediscovery.PrivateDnsNamespace(

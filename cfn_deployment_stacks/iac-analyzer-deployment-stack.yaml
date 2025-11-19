@@ -17,13 +17,13 @@ Parameters:
   # Authentication Settings
   Authentication:
     Type: String
-    Default: 'False'
-    AllowedValues: ['True', 'False']
+    Default: 'True'
+    AllowedValues: ['True', 'False (Not Recommended)']
     Description: 'Enable authentication for the application'
   
   AuthType:
     Type: String
-    Default: 'none'
+    Default: 'new-cognito'
     AllowedValues: ['none', 'new-cognito', 'existing-cognito', 'oidc']
     Description: 'Authentication type to use (none, new-cognito, existing-cognito, oidc). Required when Authentication is True.'
   
@@ -353,11 +353,127 @@ Resources:
               Service: ec2.amazonaws.com
             Action: 'sts:AssumeRole'
       ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/AdministratorAccess'
         - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
       Tags:
         - Key: Name
           Value: !Sub '${AWS::StackName}-EC2-Role'
+
+  # Custom policy for CDK deployment and bootstrap operations
+  EC2CDKRolesPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: 'CDKDeploymentPolicy'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # CDK Bootstrap CloudFormation permissions
+          - Sid: 'CDKBootstrapCloudFormation'
+            Effect: 'Allow'
+            Action:
+              - 'cloudformation:CreateChangeSet'
+              - 'cloudformation:DescribeChangeSet'
+              - 'cloudformation:ExecuteChangeSet'
+              - 'cloudformation:CreateStack'
+              - 'cloudformation:UpdateStack'
+              - 'cloudformation:DescribeStacks'
+              - 'cloudformation:DescribeStackEvents'
+              - 'cloudformation:DescribeStackResources'
+              - 'cloudformation:GetTemplate'
+              - 'cloudformation:ListStacks'
+              - 'cloudformation:ValidateTemplate'
+            Resource: 
+              - !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/CDKToolkit/*'
+              - !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/WA-IaC-Analyzer-*'
+          # CDK Bootstrap IAM permissions
+          - Sid: 'CDKBootstrapIAM'
+            Effect: 'Allow'
+            Action:
+              - 'iam:CreateRole'
+              - 'iam:UpdateRole'
+              - 'iam:AttachRolePolicy'
+              - 'iam:DetachRolePolicy'
+              - 'iam:PutRolePolicy'
+              - 'iam:DeleteRolePolicy'
+              - 'iam:GetRole'
+              - 'iam:GetRolePolicy'
+              - 'iam:ListRolePolicies'
+              - 'iam:ListAttachedRolePolicies'
+              - 'iam:TagRole'
+              - 'iam:UntagRole'
+              - 'iam:PassRole'
+            Resource: 
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/cdk-*-deploy-role-${AWS::AccountId}-${AWS::Region}'
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/cdk-*-file-publishing-role-${AWS::AccountId}-${AWS::Region}'
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/cdk-*-image-publishing-role-${AWS::AccountId}-${AWS::Region}'
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/cdk-*-lookup-role-${AWS::AccountId}-${AWS::Region}'
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/cdk-*-cfn-exec-role-${AWS::AccountId}-${AWS::Region}'
+          # CDK Bootstrap S3 permissions
+          - Sid: 'CDKBootstrapS3'
+            Effect: 'Allow'
+            Action:
+              - 's3:CreateBucket'
+              - 's3:PutBucketPolicy'
+              - 's3:PutBucketVersioning'
+              - 's3:PutBucketPublicAccessBlock'
+              - 's3:PutEncryptionConfiguration'
+              - 's3:PutBucketNotification'
+              - 's3:PutLifecycleConfiguration'
+              - 's3:GetBucketLocation'
+              - 's3:GetBucketPolicy'
+              - 's3:GetBucketVersioning'
+              - 's3:GetEncryptionConfiguration'
+              - 's3:GetLifecycleConfiguration'
+              - 's3:ListBucket'
+              - 's3:PutObject'
+              - 's3:GetObject'
+              - 's3:DeleteObject'
+            Resource:
+              - !Sub 'arn:aws:s3:::cdk-*-assets-${AWS::AccountId}-${AWS::Region}'
+              - !Sub 'arn:aws:s3:::cdk-*-assets-${AWS::AccountId}-${AWS::Region}/*'
+          # CDK Bootstrap ECR permissions
+          - Sid: 'CDKBootstrapECR'
+            Effect: 'Allow'
+            Action:
+              - 'ecr:CreateRepository'
+              - 'ecr:DescribeRepositories'
+              - 'ecr:SetRepositoryPolicy'
+              - 'ecr:GetRepositoryPolicy'
+              - 'ecr:PutLifecyclePolicy'
+              - 'ecr:GetLifecyclePolicy'
+            Resource: !Sub 'arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/cdk-*-container-assets-${AWS::AccountId}-${AWS::Region}'
+          # CDK Bootstrap SSM permissions
+          - Sid: 'CDKBootstrapSSM'
+            Effect: 'Allow'
+            Action:
+              - 'ssm:PutParameter'
+              - 'ssm:GetParameter'
+              - 'ssm:GetParameters'
+              - 'ssm:DeleteParameter'
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cdk-bootstrap/*'
+          # CDK Role assumption permissions
+          - Sid: 'AssumeCDKRoles'
+            Effect: 'Allow'
+            Action: 'sts:AssumeRole'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'iam:ResourceTag/aws-cdk:bootstrap-role':
+                  - 'image-publishing'
+                  - 'file-publishing'
+                  - 'deploy'
+                  - 'lookup'
+          # EventBridge permissions for cleanup
+          - Sid: "AllowPutEvent"
+            Effect: "Allow"
+            Action: "events:PutEvents"
+            Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/default"
+            Condition:
+              StringEquals:
+                "events:detail-type": "Stack Cleanup Request"
+              ForAllValues:StringEquals:
+                "events:source": "iac.analyzer.deployment"
+      Roles:
+        - !Ref EC2Role
 
   EC2InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
@@ -387,7 +503,8 @@ Resources:
     Type: 'AWS::EC2::Instance'
     CreationPolicy:
       ResourceSignal:
-        Timeout: PT1H30M
+        Timeout: PT2H
+        Count: 1
     Metadata:
       AWS::CloudFormation::Init:
         configSets:
@@ -421,7 +538,7 @@ Resources:
                 # Wait for network to be available
                 for i in {1..30}; do
                   echo "Network check attempt $i..." >> /var/log/user-data.log
-                  if ping -c 1 amazon.com > /dev/null 2>&1; then
+                  if ping -c 1 www.amazon.com > /dev/null 2>&1; then
                     echo "Network is up!" >> /var/log/user-data.log
                     exit 0
                   fi
@@ -472,8 +589,11 @@ Resources:
                   dnf clean all >> /var/log/user-data.log 2>&1
                   
                   # Try to install packages
-                  if dnf install -y git docker python3.11 python3.11-pip pip nodejs20 npm aws-cli aws-cfn-bootstrap amazon-cloudwatch-agent >> /var/log/user-data.log 2>&1; then
+                  if dnf install -y git docker python3.11 python3.11-pip pip nodejs npm aws-cli aws-cfn-bootstrap amazon-cloudwatch-agent >> /var/log/user-data.log 2>&1; then
                     echo "Package installation successful!" >> /var/log/user-data.log
+                    # Install Node.js 20 LTS using NodeSource repository
+                    curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - >> /var/log/user-data.log 2>&1
+                    dnf install -y nodejs >> /var/log/user-data.log 2>&1
                     exit 0
                   else
                     echo "Package installation failed. Retrying in $RETRY_DELAY seconds..." >> /var/log/user-data.log
@@ -543,8 +663,12 @@ Resources:
                 sed -i "s/^model_id = .*$/model_id = ${ModelId}/" $CONFIG_FILE
                 sed -i "s/^public_load_balancer = .*$/public_load_balancer = ${PublicLoadBalancer}/" $CONFIG_FILE
                 
-                # Update authentication settings
-                sed -i "s/^authentication = .*$/authentication = ${Authentication}/" $CONFIG_FILE
+                # Update authentication settings - handle "False (Not Recommended)" case
+                if [ "${Authentication}" == "False (Not Recommended)" ]; then
+                  sed -i "s/^authentication = .*$/authentication = False/" $CONFIG_FILE
+                else
+                  sed -i "s/^authentication = .*$/authentication = ${Authentication}/" $CONFIG_FILE
+                fi
                 sed -i "s/^auth_type = .*$/auth_type = ${AuthType}/" $CONFIG_FILE
                 
                 # Update certificate ARN if specified
@@ -724,10 +848,13 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -xe
-          # Create log file with exec redirection
+          # Exit on any error and log everything
+          set -e
+          
+          # Create log file with exec redirection for better error reporting
           touch /var/log/user-data.log
           chmod 666 /var/log/user-data.log
-          exec > >(tee -a /var/log/user-data.log) 2>&1
+          exec > >(tee -a /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
           echo "Starting UserData execution at $(date)"
 
@@ -747,6 +874,11 @@ Resources:
             else
               echo "Update failed, retrying in 10 seconds..."
               sleep 10
+              if [ $i -eq 5 ]; then
+                echo "Failed to update after 5 attempts"
+                /opt/aws/bin/cfn-signal -e 1 --stack ${AWS::StackName} --resource EC2Instance --region ${AWS::Region}
+                exit 1
+              fi
             fi
           done
           
@@ -759,6 +891,11 @@ Resources:
             else
               echo "cfn-bootstrap installation failed, retrying in 10 seconds..."
               sleep 10
+              if [ $i -eq 5 ]; then
+                echo "Failed to install cfn-bootstrap after 5 attempts"
+                /opt/aws/bin/cfn-signal -e 1 --stack ${AWS::StackName} --resource EC2Instance --region ${AWS::Region}
+                exit 1
+              fi
             fi
           done
 
@@ -766,11 +903,16 @@ Resources:
           echo "Waiting for networking to stabilize..."
           for i in {1..6}; do
             echo "Network check attempt $i..."
-            if ping -c 1 amazon.com > /dev/null 2>&1; then
+            if ping -c 1 www.amazon.com > /dev/null 2>&1; then
               echo "Network is up!"
               break
             fi
             sleep 10
+            if [ $i -eq 6 ]; then
+              echo "Network connectivity failed after 6 attempts"
+              /opt/aws/bin/cfn-signal -e 1 --stack ${AWS::StackName} --resource EC2Instance --region ${AWS::Region}
+              exit 1
+            fi
           done
           
           # Initialize cfn-init with retries
@@ -786,6 +928,11 @@ Resources:
             else
               echo "cfn-init failed with status $CFN_INIT_RESULT, retrying in 30 seconds..."
               sleep 30
+              if [ $i -eq 3 ]; then
+                echo "cfn-init failed after 3 attempts"
+                /opt/aws/bin/cfn-signal -e 1 --stack ${AWS::StackName} --resource EC2Instance --region ${AWS::Region}
+                exit 1
+              fi
             fi
           done
 
