@@ -3,6 +3,22 @@ import { IaCTemplateType } from '../shared/dto/analysis.dto';
 import { getLanguageName } from './languages';
 
 /**
+ * Checks if the model supports extended thinking capabilities
+ * @param modelId The model identifier
+ * @returns true if model supports extended thinking
+ */
+function supportsExtendedThinking(modelId?: string): boolean {
+  if (!modelId) return false;
+  
+  return [
+    'claude-3-7-sonnet',
+    'claude-haiku-4-5',
+    'claude-sonnet-4-5',
+    'claude-opus-4-5'
+  ].some(model => modelId.includes(model));
+}
+
+/**
  * Converts language code to full language name
  * @param code Language code (e.g., 'en', 'ja', 'es')
  * @returns Full language name (e.g., 'English', 'Japanese', 'Spanish')
@@ -45,6 +61,8 @@ export function buildImageSystemPrompt(
     ? `\n\nIMPORTANT: Provide the review results in ${getLanguageNameFromCode(outputLanguage)}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
+  // LLM prompts using XML-like tags, not actual HTML that would be rendered in a browser
+  // nosemgrep: html-in-template-string
   return `
   <role>You are an AWS Cloud Solutions Architect who specializes in reviewing architecture diagrams against the ${lensContext}, using a process called the Well-Architected Framework Review (WAFR).</role>
   
@@ -182,6 +200,8 @@ export function buildSystemPrompt(
     ? `\n\nIMPORTANT: Provide the review results in ${getLanguageNameFromCode(outputLanguage)}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
+  // LLM prompts using XML-like tags, not actual HTML that would be rendered in a browser
+  // nosemgrep: html-in-template-string
   return `
   <role>You are an AWS Cloud Solutions Architect who specializes in reviewing solution architecture documents against the ${lensContext}, using a process called the Well-Architected Framework Review (WAFR).</role>
   
@@ -320,6 +340,8 @@ export function buildProjectSystemPrompt(
     ? `\n\nIMPORTANT: Provide the review results in ${getLanguageNameFromCode(outputLanguage)}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
+  // LLM prompts using XML-like tags, not actual HTML that would be rendered in a browser
+  // nosemgrep: html-in-template-string
   return `
   <role>You are an AWS Cloud Solutions Architect who specializes in reviewing solution architecture documents against the ${lensContext}, using a process called the Well-Architected Framework Review (WAFR).</role>
   
@@ -425,12 +447,9 @@ export function buildProjectSystemPrompt(
  * @returns A system prompt for detailed analysis
  */
 export function buildDetailsSystemPrompt(modelId?: string, lensName?: string, outputLanguage: string = 'en'): string {
-  const useSonnet37 = modelId && (
-    modelId.includes('anthropic.claude-3-7-sonnet') ||
-    modelId.includes('us.anthropic.claude-3-7-sonnet')
-  );
+  const useExtendedThinking = supportsExtendedThinking(modelId);
 
-  const outputLengthGuidance = useSonnet37 ?
+  const outputLengthGuidance = useExtendedThinking ?
     `5. If you have completed your detailed analysis, add the marker "<end_of_details_generation>" at the very end\n6. If you have more details to provide, end your response with "<details_truncated>"\n7. Your response should be detailed and comprehensive, between 1000-3000 words in length` :
     `5. If you have completed your detailed analysis, add the marker "<end_of_details_generation>" at the very end\n6. If you have more details to provide, end your response with "<details_truncated>"`;
   
@@ -444,6 +463,8 @@ export function buildDetailsSystemPrompt(modelId?: string, lensName?: string, ou
     ? `\n8. Provide your detailed analysis in ${getLanguageNameFromCode(outputLanguage)}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
+  // LLM prompts using XML-like tags, not actual HTML that would be rendered in a browser
+  // nosemgrep: html-in-template-string
   return `
   <role>You are an AWS Cloud Solutions Architect who specializes in reviewing solution architectures and Infrastructure As Code (IaC) documents against the ${lensContext}.</role>
   
@@ -487,10 +508,7 @@ export function buildDetailsSystemPrompt(modelId?: string, lensName?: string, ou
  * @returns A system prompt for IaC template generation
  */
 export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType, modelId?: string, lensName?: string, outputLanguage: string = 'en'): string {
-  const useSonnet37 = modelId && (
-    modelId.includes('anthropic.claude-3-7-sonnet') ||
-    modelId.includes('us.anthropic.claude-3-7-sonnet')
-  );
+  const useExtendedThinking = supportsExtendedThinking(modelId);
 
   // Determine if CDK
   const isCdkTemplate = templateType.includes('AWS CDK');
@@ -502,7 +520,7 @@ export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType, mo
     : 'AWS Well-Architected Framework';
 
   // Output length instructions
-  const outputLengthInstructions = useSonnet37 ?
+  const outputLengthInstructions = useExtendedThinking ?
     `      4. Each of your answers should have at least 1500 words, unless you are providing a response with the last part of a template.` :
     `      4. Each of your answers should have at least 800 words, unless you are providing a response with the last part of a template.`;
 
@@ -511,6 +529,8 @@ export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType, mo
     ? `      5. Provide all comments and explanations in ${getLanguageNameFromCode(outputLanguage)}, but keep code, variable names, and technical terms in English.` 
     : '';
 
+  // LLM prompts using XML-like tags, not actual HTML that would be rendered in a browser
+  // nosemgrep: html-in-template-string
   return `
   <role>You are an AWS Cloud Solutions Architect who specializes in creating Infrastructure as Code (IaC) templates.</role>
   
@@ -559,10 +579,7 @@ export function buildIacGenerationSystemPrompt(templateType: IaCTemplateType, mo
  * @returns A system prompt for architecture diagram detailed analysis
  */
 export function buildImageDetailsSystemPrompt(templateType: IaCTemplateType, modelId?: string, lensName?: string, outputLanguage: string = 'en'): string {
-  const useSonnet37 = modelId && (
-    modelId.includes('anthropic.claude-3-7-sonnet') ||
-    modelId.includes('us.anthropic.claude-3-7-sonnet')
-  );
+  const useExtendedThinking = supportsExtendedThinking(modelId);
 
   // Determine if CDK
   const isCdkTemplate = templateType?.includes('AWS CDK');
@@ -573,7 +590,7 @@ export function buildImageDetailsSystemPrompt(templateType: IaCTemplateType, mod
     : `${templateType} examples`;
 
   // Define output length based on model
-  const outputLengthGuidance = useSonnet37 ?
+  const outputLengthGuidance = useExtendedThinking ?
     `5. If you have completed your detailed analysis, add the marker "<end_of_details_generation>" at the very end\n6. If you have more details to provide, end your response with "<details_truncated>"\n7. Your response should be detailed and comprehensive, between 1000-3000 words in length` :
     `5. If you have completed your detailed analysis, add the marker "<end_of_details_generation>" at the very end\n6. If you have more details to provide, end your response with "<details_truncated>"`;
 
@@ -587,6 +604,8 @@ export function buildImageDetailsSystemPrompt(templateType: IaCTemplateType, mod
     ? `\n8. Provide your detailed analysis in ${getLanguageNameFromCode(outputLanguage)}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
+  // LLM prompts using XML-like tags, not actual HTML that would be rendered in a browser
+  // nosemgrep: html-in-template-string
   return `
   <role>You are an AWS Cloud Solutions Architect who specializes in reviewing architecture diagrams against the ${lensContext}.</role>
       
@@ -661,6 +680,8 @@ export function buildPdfSystemPrompt(
     ? `\n\nIMPORTANT: Provide the review results in ${getLanguageNameFromCode(outputLanguage)}. Keep the best practice names in English, but all explanations, reasons, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
+  // LLM prompts using XML-like tags, not actual HTML that would be rendered in a browser
+  // nosemgrep: html-in-template-string
   return `
   <role>You are an AWS Cloud Solutions Architect who specializes in reviewing architecture documentation against the ${lensContext}, using a process called the Well-Architected Framework Review (WAFR).</role>
   
@@ -748,6 +769,8 @@ export function buildPdfDetailsSystemPrompt(lensName?: string, outputLanguage: s
     ? `\n8. Provide your detailed analysis in ${getLanguageNameFromCode(outputLanguage)}. Keep technical terms and AWS service names in English, but all explanations, guidance, and recommendations should be in ${getLanguageNameFromCode(outputLanguage)}.`
     : '';
 
+  // LLM prompts using XML-like tags, not actual HTML that would be rendered in a browser
+  // nosemgrep: html-in-template-string
   return `
   <role>You are an AWS Cloud Solutions Architect who specializes in reviewing solution architectures and documentation against the ${lensContext}.</role>
 

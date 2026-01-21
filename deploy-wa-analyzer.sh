@@ -181,8 +181,8 @@ check_prerequisites() {
     local missing_commands=()
     
     for cmd in "${required_commands[@]}"; do
-        if ! command -v $cmd &> /dev/null; then
-            missing_commands+=($cmd)
+        if ! command -v "$cmd" &> /dev/null; then
+            missing_commands+=("$cmd")
             echo "❌ $cmd is required but not installed"
         else
             echo "✅ $cmd is installed"
@@ -295,6 +295,18 @@ check_auth_config() {
         elif [ "$AUTH_ENABLED" = "False" ]; then
             echo "✅ Authentication is disabled. No verification needed."
         fi
+        
+        # Validate vector store type configuration
+        VECTOR_STORE_TYPE=$(awk -F "=" '/^vector_store_type/ {gsub(/ /,"",$2); print $2}' config.ini)
+        if [ -n "$VECTOR_STORE_TYPE" ]; then
+            if [ "$VECTOR_STORE_TYPE" != "opensearch_serverless" ] && [ "$VECTOR_STORE_TYPE" != "s3_vectors" ]; then
+                echo "❌ Error: Invalid vector_store_type. Must be one of: opensearch_serverless, s3_vectors"
+                exit 1
+            fi
+            echo "✅ Vector store type: $VECTOR_STORE_TYPE"
+        else
+            echo "✅ Vector store type: s3_vectors (default)"
+        fi
     fi
 }
 
@@ -358,7 +370,7 @@ deploy_stack() {
     
     # Bootstrap CDK if needed
     echo "Bootstrapping CDK (if needed) in AWS account $AWS_ACCOUNT and region $REGION..."
-    cdk bootstrap aws://$AWS_ACCOUNT/$REGION
+    cdk bootstrap "aws://$AWS_ACCOUNT/$REGION"
     
     # Deploy stack
     echo "Deploying stack..."
